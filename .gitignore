@@ -1,0 +1,28 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (NUNCA subir a GitHub)
+.env
+.env.local
+.env.production
+
+# Build
+dist/
+build/
+.vite/
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# Logs
+*.log
+npm-debug.log*
+
+# PWA generado
+dev-dist/
