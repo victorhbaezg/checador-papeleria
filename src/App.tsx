@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import AdminDashboard from "./pages/AdminDashboard";
+import TrabajadoresList from "./pages/admin/TrabajadoresList";
+import TrabajadorForm from "./pages/admin/TrabajadorForm";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./lib/auth";
 
@@ -34,6 +36,33 @@ export default function App() {
         element={
           <ProtectedRoute soloAdmin>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/trabajadores"
+        element={
+          <ProtectedRoute soloAdmin>
+            <TrabajadoresList />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/trabajadores/nuevo"
+        element={
+          <ProtectedRoute soloAdmin>
+            <TrabajadorForm />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/trabajadores/:id"
+        element={
+          <ProtectedRoute soloAdmin>
+            <TrabajadorForm />
           </ProtectedRoute>
         }
       />

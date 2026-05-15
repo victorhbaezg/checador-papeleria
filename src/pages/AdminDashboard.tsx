@@ -1,6 +1,41 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
+type Tile = {
+  to?: string;
+  titulo: string;
+  descripcion: string;
+  proximamente?: boolean;
+  icono: string;
+};
+
+const TILES: Tile[] = [
+  {
+    to: "/admin/trabajadores",
+    titulo: "Trabajadores",
+    descripcion: "Alta, edición, tarifas y horarios",
+    icono: "👥",
+  },
+  {
+    titulo: "QR del local",
+    descripcion: "Genera el QR para imprimir y pegar",
+    proximamente: true,
+    icono: "🔳",
+  },
+  {
+    titulo: "Reporte semanal",
+    descripcion: "Horas y pago de la semana",
+    proximamente: true,
+    icono: "📅",
+  },
+  {
+    titulo: "Reporte mensual",
+    descripcion: "Bono mensual de $250",
+    proximamente: true,
+    icono: "💰",
+  },
+];
+
 export default function AdminDashboard() {
   const { trabajador, cerrarSesion } = useAuth();
 
@@ -25,30 +60,49 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-8 space-y-4">
-        <h1 className="text-2xl font-bold text-slate-900">Panel de administración</h1>
-        <p className="text-slate-500">
-          Aquí vas a poder dar de alta trabajadores, ver todas las marcas, generar el
-          QR del local y exportar reportes. Lo construimos en los próximos pasos.
-        </p>
+      <main className="mx-auto max-w-2xl px-4 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Panel de administración</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Gestiona el equipo, el QR del local y los reportes.
+          </p>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="card opacity-60">
-            <h2 className="text-sm font-semibold text-slate-700">Trabajadores</h2>
-            <p className="mt-1 text-xs text-slate-500">Próximamente</p>
-          </div>
-          <div className="card opacity-60">
-            <h2 className="text-sm font-semibold text-slate-700">QR del local</h2>
-            <p className="mt-1 text-xs text-slate-500">Próximamente</p>
-          </div>
-          <div className="card opacity-60">
-            <h2 className="text-sm font-semibold text-slate-700">Reporte semanal</h2>
-            <p className="mt-1 text-xs text-slate-500">Próximamente</p>
-          </div>
-          <div className="card opacity-60">
-            <h2 className="text-sm font-semibold text-slate-700">Reporte mensual</h2>
-            <p className="mt-1 text-xs text-slate-500">Próximamente</p>
-          </div>
+          {TILES.map((tile) => {
+            const contenido = (
+              <>
+                <div className="flex items-start justify-between">
+                  <span className="text-2xl">{tile.icono}</span>
+                  {tile.proximamente && (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                      Pronto
+                    </span>
+                  )}
+                </div>
+                <h2 className="mt-3 text-sm font-semibold text-slate-800">{tile.titulo}</h2>
+                <p className="mt-1 text-xs text-slate-500">{tile.descripcion}</p>
+              </>
+            );
+
+            if (tile.to && !tile.proximamente) {
+              return (
+                <Link
+                  key={tile.titulo}
+                  to={tile.to}
+                  className="card transition hover:shadow-md hover:ring-marca-500/40"
+                >
+                  {contenido}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={tile.titulo} className="card opacity-60">
+                {contenido}
+              </div>
+            );
+          })}
         </div>
       </main>
     </div>
