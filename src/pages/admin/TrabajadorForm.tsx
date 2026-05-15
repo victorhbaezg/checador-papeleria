@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase, type Horario, type Trabajador } from "../../lib/supabase";
 import { DIAS_SEMANA, hhmm } from "../../lib/dias";
+import { useAuth } from "../../lib/auth";
+import ConfirmarEliminarTrabajador from "../../components/ConfirmarEliminarTrabajador";
 
 type HorarioForm = {
   dia_semana: number;
@@ -21,6 +23,7 @@ export default function TrabajadorForm() {
   const { id } = useParams<{ id: string }>();
   const esEdicion = Boolean(id);
   const navigate = useNavigate();
+  const { trabajador: usuarioActual } = useAuth();
 
   const [nombre, setNombre] = useState("");
   const [usuario, setUsuario] = useState("");
@@ -28,6 +31,8 @@ export default function TrabajadorForm() {
   const [tarifaHora, setTarifaHora] = useState("");
   const [esAdmin, setEsAdmin] = useState(false);
   const [horarios, setHorarios] = useState<HorarioForm[]>(horariosDefault);
+  const [trabajadorActual, setTrabajadorActual] = useState<Trabajador | null>(null);
+  const [mostrarConfirmar, setMostrarConfirmar] = useState(false);
 
   const [cargando, setCargando] = useState(esEdicion);
   const [guardando, setGuardando] = useState(false);
@@ -48,6 +53,7 @@ export default function TrabajadorForm() {
         return;
       }
       const trab = t as Trabajador;
+      setTrabajadorActual(trab);
       setNombre(trab.nombre);
       setUsuario(trab.usuario);
       setTarifaHora(String(trab.tarifa_hora));
@@ -380,7 +386,35 @@ export default function TrabajadorForm() {
             </button>
           </div>
         </form>
+
+        {/* Zona peligrosa: solo en edición y si no soy yo mismo */}
+        {esEdicion && trabajadorActual && trabajadorActual.id !== usuarioActual?.id && (
+          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50/40 p-6">
+            <h2 className="text-sm font-semibold text-red-800">Zona peligrosa</h2>
+            <p className="mt-1 text-xs text-red-700">
+              Elimina permanentemente al trabajador y todo su historial de marcas. No se puede deshacer.
+            </p>
+            <button
+              type="button"
+              onClick={() => setMostrarConfirmar(true)}
+              className="mt-3 inline-flex items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+            >
+              Eliminar permanentemente
+            </button>
+          </div>
+        )}
       </main>
+
+      {mostrarConfirmar && trabajadorActual && (
+        <ConfirmarEliminarTrabajador
+          trabajador={trabajadorActual}
+          onCancelar={() => setMostrarConfirmar(false)}
+          onEliminado={() => {
+            setMostrarConfirmar(false);
+            navigate("/admin/trabajadores");
+          }}
+        />
+      )}
     </div>
   );
 }
