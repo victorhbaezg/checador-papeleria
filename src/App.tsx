@@ -4,6 +4,8 @@ import Home from "./pages/Home";
 import AdminDashboard from "./pages/AdminDashboard";
 import TrabajadoresList from "./pages/admin/TrabajadoresList";
 import TrabajadorForm from "./pages/admin/TrabajadorForm";
+import ConfiguracionPage from "./pages/admin/Configuracion";
+import QrImprimir from "./pages/admin/QrImprimir";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./lib/auth";
 
@@ -63,6 +65,24 @@ export default function App() {
         element={
           <ProtectedRoute soloAdmin>
             <TrabajadorForm />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/configuracion"
+        element={
+          <ProtectedRoute soloAdmin>
+            <ConfiguracionPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/configuracion/imprimir"
+        element={
+          <ProtectedRoute soloAdmin>
+            <QrImprimir />
           </ProtectedRoute>
         }
       />

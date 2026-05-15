@@ -17,9 +17,9 @@ const TILES: Tile[] = [
     icono: "👥",
   },
   {
-    titulo: "QR del local",
-    descripcion: "Genera el QR para imprimir y pegar",
-    proximamente: true,
+    to: "/admin/configuracion",
+    titulo: "Configuración",
+    descripcion: "QR del local, tolerancia y bono",
     icono: "🔳",
   },
   {
