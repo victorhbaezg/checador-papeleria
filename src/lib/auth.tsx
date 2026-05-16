@@ -63,6 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // el login (trabajador=null) y dejamos que el usuario reintente.
         console.error("[auth] Fallo al cargar sesion inicial:", err);
         if (!cancelado) setTrabajador(null);
+
+        // Bug conocido del SDK de Supabase: si el token guardado queda
+        // en un estado intermedio (p.ej. la pestana se cerro a media
+        // renovacion), getSession() se cuelga indefinidamente.
+        // Al detectar el timeout limpiamos el storage local para que
+        // el proximo arranque parta limpio en vez de volver a colgarse.
+        try {
+          await supabase.auth.signOut({ scope: "local" });
+        } catch (signOutErr) {
+          console.error("[auth] Fallo limpiando sesion corrupta:", signOutErr);
+        }
       } finally {
         if (!cancelado) setCargando(false);
       }
