@@ -10,11 +10,22 @@ if (!url || !anonKey) {
   );
 }
 
+// Lock no-op: bypass al mecanismo de Web Locks que usa Supabase JS por
+// dentro. Sin esto, en algunos navegadores y especialmente con el service
+// worker de la PWA, el lock se queda tomado y getSession() se cuelga
+// indefinidamente al abrir la app. Para una app pequena con un usuario
+// por dispositivo, no necesitamos coordinar entre pestanas, asi que
+// quitar el lock es seguro y soluciona el bug.
+const lockNoOp = async <R,>(_name: string, _timeout: number, fn: () => Promise<R>): Promise<R> => {
+  return fn();
+};
+
 export const supabase = createClient(url, anonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
+    lock: lockNoOp,
   },
 });
 
