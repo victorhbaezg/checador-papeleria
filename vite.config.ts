@@ -38,6 +38,13 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: "/index.html",
+        // Que cada deploy nuevo desplace al viejo en cuanto el usuario abra la app,
+        // en vez de esperar a que cierre todas las pestañas. Antes podía pasar
+        // que el navegador siguiera sirviendo HTML viejo + JS nuevo y la app
+        // se quedaba en "Cargando…" indefinido.
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.origin.includes("supabase.co"),

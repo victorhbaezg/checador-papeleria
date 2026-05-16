@@ -10,11 +10,9 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-/**
- * Convierte "usuario" (texto simple que ven los trabajadores) a un email
- * que Supabase Auth pueda manejar. Supabase Auth requiere email, asi que
- * usamos el dominio de la papeleria como sufijo interno.
- */
+// Convierte "usuario" (texto simple que ven los trabajadores) a un email
+// que Supabase Auth pueda manejar. Supabase Auth requiere email, asi que
+// usamos el dominio de la papeleria como sufijo interno.
 const DOMINIO_USUARIOS = "cyber7.mx";
 
 function usuarioAEmail(usuario: string): string {
@@ -22,31 +20,73 @@ function usuarioAEmail(usuario: string): string {
   return `${limpio}@${DOMINIO_USUARIOS}`;
 }
 
+// Timeout de seguridad para que el chequeo inicial de sesion nunca se quede
+// colgado. Si Supabase no responde en este tiempo, la app suelta el
+// "Cargando..." y manda al login para que el usuario reintente.
+const TIMEOUT_CARGA_INICIAL_MS = 6000;
+
+function conTimeout<T>(p: Promise<T>, ms: number, etiqueta: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error("Timeout: " + etiqueta)), ms);
+    p.then(
+      (v) => { clearTimeout(id); resolve(v); },
+      (e) => { clearTimeout(id); reject(e); },
+    );
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [trabajador, setTrabajador] = useState<Trabajador | null>(null);
   const [cargando, setCargando] = useState(true);
 
-  // Al cargar, revisar si hay sesion previa
   useEffect(() => {
-    const cargarSesion = async () => {
-      const { data: sesion } = await supabase.auth.getSession();
-      if (sesion.session) {
-        await cargarPerfil(sesion.session.user.id);
-      }
-      setCargando(false);
-    };
-    cargarSesion();
+    let cancelado = false;
 
-    // Escuchar cambios de auth (login / logout)
+    const cargarSesion = async () => {
+      try {
+        const { data: sesion } = await conTimeout(
+          supabase.auth.getSession(),
+          TIMEOUT_CARGA_INICIAL_MS,
+          "getSession",
+        );
+        if (cancelado) return;
+        if (sesion.session) {
+          await conTimeout(
+            cargarPerfil(sesion.session.user.id),
+            TIMEOUT_CARGA_INICIAL_MS,
+            "cargarPerfil",
+          );
+        }
+      } catch (err) {
+        // No queremos quedarnos en "Cargando..." pase lo que pase.
+        // Si la sesion esta corrupta o Supabase no responde, mostramos
+        // el login (trabajador=null) y dejamos que el usuario reintente.
+        console.error("[auth] Fallo al cargar sesion inicial:", err);
+        if (!cancelado) setTrabajador(null);
+      } finally {
+        if (!cancelado) setCargando(false);
+      }
+    };
+    void cargarSesion();
+
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (cancelado) return;
       if (session) {
-        await cargarPerfil(session.user.id);
+        try {
+          await cargarPerfil(session.user.id);
+        } catch (err) {
+          console.error("[auth] Fallo al refrescar perfil:", err);
+          setTrabajador(null);
+        }
       } else {
         setTrabajador(null);
       }
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      cancelado = true;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const cargarPerfil = async (authUserId: string) => {
@@ -68,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: usuarioAEmail(usuario),
       password,
     });
-    if (error) return { error: "Usuario o contraseña incorrectos." };
+    if (error) return { error: "Usuario o contrasena incorrectos." };
     return {};
   };
 
