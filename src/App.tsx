@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
+import Marcar from "./pages/Marcar";
+import MisMarcas from "./pages/MisMarcas";
 import AdminDashboard from "./pages/AdminDashboard";
 import TrabajadoresList from "./pages/admin/TrabajadoresList";
 import TrabajadorForm from "./pages/admin/TrabajadorForm";
@@ -29,6 +31,24 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Home />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/marcar"
+        element={
+          <ProtectedRoute>
+            <Marcar />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mis-marcas"
+        element={
+          <ProtectedRoute>
+            <MisMarcas />
           </ProtectedRoute>
         }
       />
