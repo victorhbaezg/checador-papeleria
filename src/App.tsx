@@ -8,6 +8,7 @@ import TrabajadoresList from "./pages/admin/TrabajadoresList";
 import TrabajadorForm from "./pages/admin/TrabajadorForm";
 import ConfiguracionPage from "./pages/admin/Configuracion";
 import QrImprimir from "./pages/admin/QrImprimir";
+import ReporteSemanal from "./pages/admin/ReporteSemanal";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./lib/auth";
 
@@ -17,7 +18,7 @@ export default function App() {
   if (cargando) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 text-slate-500">
-        Cargando…
+        Cargando...
       </div>
     );
   }
@@ -103,6 +104,15 @@ export default function App() {
         element={
           <ProtectedRoute soloAdmin>
             <QrImprimir />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/reporte"
+        element={
+          <ProtectedRoute soloAdmin>
+            <ReporteSemanal />
           </ProtectedRoute>
         }
       />

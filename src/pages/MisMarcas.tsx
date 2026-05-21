@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { supabase, type Marca } from "../lib/supabase";
+import { supabase, type Marca, type Horario } from "../lib/supabase";
 import { formatoFechaCorta, formatoHoraMx, inicioSemanaMx } from "../lib/marcado";
+import { calcularResumenSemana, type ResumenSemana } from "../lib/reporte";
+import { pesos } from "../lib/dias";
 
 /** Una fila por dia con la informacion que mostramos al trabajador. */
 type ResumenDia = {
@@ -16,6 +18,7 @@ type ResumenDia = {
 export default function MisMarcas() {
   const { trabajador } = useAuth();
   const [dias, setDias] = useState<ResumenDia[]>([]);
+  const [resumen, setResumen] = useState<ResumenSemana | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,27 +33,38 @@ export default function MisMarcas() {
     setError(null);
 
     const inicioUtc = inicioSemanaMx();
-    const { data, error: errMarcas } = await supabase
-      .from("marcas")
-      .select("*")
-      .eq("trabajador_id", trabajadorId)
-      .gte("marcado_en", inicioUtc.toISOString())
-      .order("marcado_en", { ascending: true });
 
-    if (errMarcas) {
-      setError(errMarcas.message);
+    const [{ data: marcasData, error: errMarcas }, { data: horariosData, error: errHorarios }] =
+      await Promise.all([
+        supabase
+          .from("marcas")
+          .select("*")
+          .eq("trabajador_id", trabajadorId)
+          .gte("marcado_en", inicioUtc.toISOString())
+          .order("marcado_en", { ascending: true }),
+        supabase
+          .from("horarios")
+          .select("*")
+          .eq("trabajador_id", trabajadorId),
+      ]);
+
+    if (errMarcas || errHorarios) {
+      setError(errMarcas?.message ?? errHorarios?.message ?? "Error al cargar datos");
       setCargando(false);
       return;
     }
 
-    setDias(agruparPorDia((data ?? []) as Marca[]));
+    const marcas = (marcasData ?? []) as Marca[];
+    const horarios = (horariosData ?? []) as Horario[];
+
+    setDias(agruparPorDia(marcas));
+    setResumen(
+      calcularResumenSemana(marcas, horarios, trabajador?.tarifa_hora ?? 0),
+    );
     setCargando(false);
   };
 
   if (!trabajador) return null;
-
-  const totalHoras = dias.reduce((acc, d) => acc + (d.horas ?? 0), 0);
-  const totalRetardos = dias.filter((d) => d.fueRetardo).length;
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -72,23 +86,53 @@ export default function MisMarcas() {
       </header>
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-6">
-        {/* Totales arriba */}
+        {/* Tarjeta de metricas */}
         <div className="card grid grid-cols-2 gap-3">
           <div className="text-center">
             <p className="label-section">Horas</p>
-            <p className="mt-1 text-3xl font-bold text-marca-600">{totalHoras.toFixed(1)}</p>
+            <p className="mt-1 text-3xl font-bold text-marca-600">
+              {resumen ? resumen.horasTrabajadas.toFixed(1) : "--"}
+            </p>
           </div>
           <div className="border-l border-slate-100 text-center">
             <p className="label-section">Retardos</p>
             <p
               className={`mt-1 text-3xl font-bold ${
-                totalRetardos > 0 ? "text-amber-600" : "text-navy-700"
+                (resumen?.retardos ?? 0) > 0 ? "text-amber-600" : "text-navy-700"
               }`}
             >
-              {totalRetardos}
+              {resumen?.retardos ?? "--"}
+            </p>
+          </div>
+          <div className="col-span-2 border-t border-slate-100 pt-3 text-center">
+            <p className="label-section">Faltas</p>
+            <p
+              className={`mt-1 text-2xl font-bold ${
+                (resumen?.faltas ?? 0) > 0 ? "text-rose-600" : "text-navy-700"
+              }`}
+            >
+              {resumen?.faltas ?? "--"}
             </p>
           </div>
         </div>
+
+        {/* Estimado de pago */}
+        {resumen && trabajador.tarifa_hora > 0 && (
+          <div className="card border-t-2 border-marca-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="label-section">Pago estimado</p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {resumen.horasTrabajadas.toFixed(1)} h x {pesos(trabajador.tarifa_hora)}/h
+                </p>
+              </div>
+              <p className="text-2xl font-bold text-navy-700">{pesos(resumen.totalPago)}</p>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">
+              Solo incluye dias con entrada y salida registradas.
+            </p>
+          </div>
+        )}
 
         {/* Lista de dias */}
         {cargando && <p className="text-sm text-slate-400">Cargando marcas...</p>}

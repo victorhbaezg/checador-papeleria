@@ -25,9 +25,9 @@ const TILES: Tile[] = [
     icono: "configuracion",
   },
   {
+    to: "/admin/reporte",
     titulo: "Reporte semanal",
     descripcion: "Horas y pago de la semana",
-    proximamente: true,
     icono: "semanal",
   },
   {
