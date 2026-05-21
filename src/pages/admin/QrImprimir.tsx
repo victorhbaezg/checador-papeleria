@@ -20,7 +20,7 @@ export default function QrImprimir() {
         .eq("id", 1)
         .single();
       if (error || !data) {
-        setError(error?.message ?? "No se encontró la configuración");
+        setError(error?.message ?? "No se encontro la configuracion");
         return;
       }
       setCodigo(data.qr_local);
@@ -41,7 +41,7 @@ export default function QrImprimir() {
 
   return (
     <div className="min-h-screen bg-slate-200 print:bg-white">
-      {/* Estilos específicos de impresión */}
+      {/* Estilos especificos de impresion */}
       <style>{`
         @media print {
           @page { size: A4; margin: 0; }
@@ -61,43 +61,52 @@ export default function QrImprimir() {
         <button
           type="button"
           onClick={() => window.close()}
-          className="text-sm text-slate-500 hover:text-slate-900"
+          className="flex items-center gap-1 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
-          ← Cerrar
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+          Cerrar
         </button>
         <button
           type="button"
           onClick={() => window.print()}
           disabled={!qrDataUrl}
-          className="btn-primary py-2 px-4 text-sm"
+          className="btn-primary gap-1.5 px-4 py-2 text-sm"
         >
-          🖨 Imprimir
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9V2h12v7" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect width="12" height="8" x="6" y="14" />
+          </svg>
+          Imprimir
         </button>
       </div>
 
-      {/* Hoja A4 (210 × 297 mm aproximadamente) */}
+      {/* Hoja A4 (210 x 297 mm aproximadamente) */}
       <div className="mx-auto my-6 flex max-w-[210mm] flex-col items-center justify-center bg-white p-12 shadow-lg hoja">
         {error && (
-          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          <p className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">{error}</p>
         )}
 
         {!error && (
           <>
-            <p className="text-sm uppercase tracking-[0.3em] text-slate-500">
+            <p className="text-sm uppercase tracking-[0.3em] text-marca-600">
               Control de asistencia
             </p>
-            <h1 className="mt-2 text-5xl font-black text-slate-900">CYBER 7</h1>
+            <h1 className="mt-2 text-5xl font-black text-navy-700">CYBER 7</h1>
 
             <div className="mt-10 w-full border-y-4 border-double border-slate-300 py-10">
               {qrDataUrl ? (
                 <img
                   src={qrDataUrl}
-                  alt="Código QR del local"
+                  alt="Codigo QR del local"
                   className="mx-auto h-72 w-72"
                 />
               ) : (
                 <div className="mx-auto flex h-72 w-72 items-center justify-center text-sm text-slate-400">
-                  Generando…
+                  Generando...
                 </div>
               )}
             </div>
@@ -107,8 +116,8 @@ export default function QrImprimir() {
             </h2>
             <ol className="mt-4 max-w-md list-decimal space-y-1 text-left text-base text-slate-700">
               <li>Abre la app del checador en tu celular.</li>
-              <li>Toca el botón "Marcar entrada / salida".</li>
-              <li>Apunta la cámara a este código.</li>
+              <li>Toca el boton "Marcar entrada / salida".</li>
+              <li>Apunta la camara a este codigo.</li>
               <li>Listo: queda registrada tu hora.</li>
             </ol>
 
@@ -118,8 +127,8 @@ export default function QrImprimir() {
                 month: "long",
                 year: "numeric",
               })}
-              {" · "}
-              Código: <span className="font-mono">{codigo.slice(-8)}</span>
+              {" - "}
+              Codigo: <span className="font-mono">{codigo.slice(-8)}</span>
             </p>
           </>
         )}

@@ -30,36 +30,36 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-marca-500 text-white">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-navy-700">
             <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
+              width="32"
+              height="32"
               viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-              className="h-8 w-8"
+              fill="none"
+              stroke="#34c0c8"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 6v6l4 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-              />
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 3" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Checador Papelería</h1>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-marca-600">
+            Cyber 7
+          </p>
+          <h1 className="mt-1 text-2xl font-bold text-navy-700">Control de asistencia</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Inicia sesión con el usuario que te dieron
+            Inicia sesion con el usuario que te dieron
           </p>
         </div>
 
         <form onSubmit={enviar} className="card space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Usuario
-            </label>
+            <label className="label-section mb-1.5 block">Usuario</label>
             <input
               type="text"
               autoComplete="username"
@@ -74,9 +74,7 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Contraseña
-            </label>
+            <label className="label-section mb-1.5 block">Contrasena</label>
             <input
               type="password"
               autoComplete="current-password"
@@ -84,23 +82,23 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="input-field"
-              placeholder="••••••••"
+              placeholder="Tu contrasena"
             />
           </div>
 
           {error && (
-            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
+            <div className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-200">
               {error}
             </div>
           )}
 
           <button type="submit" disabled={enviando} className="btn-primary w-full">
-            {enviando ? "Entrando…" : "Entrar"}
+            {enviando ? "Entrando..." : "Entrar"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          ¿Olvidaste tu contraseña? Pídele a Hugo que te la reinicie.
+          Si olvidaste tu contrasena, pidele a Hugo que te la reinicie.
         </p>
       </div>
     </div>

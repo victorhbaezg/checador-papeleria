@@ -8,7 +8,7 @@ type Props = {
 };
 
 /**
- * Modal de confirmación destructiva.
+ * Modal de confirmacion destructiva.
  * Pide al admin escribir el nombre exacto del trabajador para evitar borrados accidentales.
  */
 export default function ConfirmarEliminarTrabajador({
@@ -21,7 +21,7 @@ export default function ConfirmarEliminarTrabajador({
   const [eliminando, setEliminando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Contar marcas existentes para mostrar el daño potencial
+  // Contar marcas existentes para mostrar el dano potencial
   useEffect(() => {
     const cargar = async () => {
       const { count, error } = await supabase
@@ -80,12 +80,16 @@ export default function ConfirmarEliminarTrabajador({
       onClick={() => !eliminando && onCancelar()}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-xl">
-            ⚠️
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#be123c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <path d="M12 9v4" />
+              <path d="M12 17h.01" />
+            </svg>
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900">
@@ -97,14 +101,14 @@ export default function ConfirmarEliminarTrabajador({
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-          <p className="font-medium">Esta acción no se puede deshacer.</p>
+        <div className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800 ring-1 ring-rose-200">
+          <p className="font-medium">Esta accion no se puede deshacer.</p>
           <p className="mt-1">
-            Se perderá su acceso a la app
+            Se perdera su acceso a la app
             {marcas !== null && marcas > 0 && (
-              <> y se borrarán <strong>{marcas}</strong> marcas históricas (asistencias, retardos, faltas)</>
+              <> y se borraran <strong>{marcas}</strong> marcas historicas (asistencias, retardos, faltas)</>
             )}
-            {marcas === 0 && <> (todavía no tiene marcas registradas)</>}.
+            {marcas === 0 && <> (todavia no tiene marcas registradas)</>}.
           </p>
           {marcas !== null && marcas > 0 && (
             <p className="mt-2 text-xs">
@@ -130,7 +134,7 @@ export default function ConfirmarEliminarTrabajador({
         </div>
 
         {error && (
-          <div className="mt-3 rounded-lg border-l-4 border-red-500 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
             {error}
           </div>
         )}
@@ -140,7 +144,7 @@ export default function ConfirmarEliminarTrabajador({
             type="button"
             onClick={onCancelar}
             disabled={eliminando}
-            className="btn-secondary py-2 px-4 text-sm"
+            className="btn-secondary px-4 py-2 text-sm"
           >
             Cancelar
           </button>
@@ -148,9 +152,9 @@ export default function ConfirmarEliminarTrabajador({
             type="button"
             onClick={eliminar}
             disabled={!coincide || eliminando}
-            className="inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {eliminando ? "Eliminando…" : "Eliminar permanentemente"}
+            {eliminando ? "Eliminando..." : "Eliminar permanentemente"}
           </button>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { useAuth } from "../lib/auth";
 import { supabase, type Marca } from "../lib/supabase";
 import { formatoFechaCorta, formatoHoraMx, inicioSemanaMx } from "../lib/marcado";
 
-/** Una fila por día con la información que mostramos al trabajador. */
+/** Una fila por dia con la informacion que mostramos al trabajador. */
 type ResumenDia = {
   fechaLocal: string; // "YYYY-MM-DD" en CDMX
   entrada: Marca | null;
@@ -53,29 +53,36 @@ export default function MisMarcas() {
   const totalRetardos = dias.filter((d) => d.fueRetardo).length;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white px-4 py-4">
-        <div className="mx-auto flex max-w-md items-center justify-between">
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-900">
-            ← Atrás
+    <div className="min-h-screen bg-slate-100">
+      <header className="bg-navy-700">
+        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-4">
+          <Link
+            to="/"
+            className="flex items-center gap-1 text-sm font-medium text-navy-100 transition hover:text-white"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            Atras
           </Link>
-          <p className="text-base font-semibold text-slate-900">Mi semana</p>
-          <span className="w-12" />
+          <p className="text-sm font-semibold text-white">Mi semana</p>
+          <span className="w-14" />
         </div>
       </header>
 
-      <main className="mx-auto max-w-md px-4 py-6 space-y-4">
+      <main className="mx-auto max-w-md space-y-4 px-4 py-6">
         {/* Totales arriba */}
-        <div className="card grid grid-cols-2 gap-3 text-center">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Horas</p>
-            <p className="mt-1 text-3xl font-bold text-slate-900">{totalHoras.toFixed(1)}</p>
+        <div className="card grid grid-cols-2 gap-3">
+          <div className="text-center">
+            <p className="label-section">Horas</p>
+            <p className="mt-1 text-3xl font-bold text-marca-600">{totalHoras.toFixed(1)}</p>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Retardos</p>
+          <div className="border-l border-slate-100 text-center">
+            <p className="label-section">Retardos</p>
             <p
               className={`mt-1 text-3xl font-bold ${
-                totalRetardos > 0 ? "text-amber-600" : "text-slate-900"
+                totalRetardos > 0 ? "text-amber-600" : "text-navy-700"
               }`}
             >
               {totalRetardos}
@@ -83,23 +90,23 @@ export default function MisMarcas() {
           </div>
         </div>
 
-        {/* Lista de días */}
-        {cargando && <p className="text-sm text-slate-400">Cargando marcas…</p>}
+        {/* Lista de dias */}
+        {cargando && <p className="text-sm text-slate-400">Cargando marcas...</p>}
 
         {error && (
-          <div className="card border border-rose-200 bg-rose-50 text-sm text-rose-700">
+          <div className="rounded-lg bg-rose-50 p-5 text-sm text-rose-700 ring-1 ring-rose-200">
             {error}
           </div>
         )}
 
         {!cargando && !error && dias.length === 0 && (
           <div className="card text-center text-sm text-slate-500">
-            Todavía no hay marcas esta semana. Cuando marques entrada o salida, aparecerán aquí.
+            Todavia no hay marcas esta semana. Cuando marques entrada o salida, apareceran aqui.
           </div>
         )}
 
         {!cargando && dias.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {dias.map((d) => (
               <FilaDia key={d.fechaLocal} dia={d} />
             ))}
@@ -114,33 +121,33 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
   return (
     <div className="card">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold capitalize text-slate-900">
+        <p className="text-sm font-semibold capitalize text-navy-700">
           {formatoFechaCorta(`${dia.fechaLocal}T12:00:00.000Z`)}
         </p>
         {dia.fueRetardo && (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
             Retardo
           </span>
         )}
       </div>
 
-      <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+      <div className="mt-3 grid grid-cols-3 gap-2">
         <div>
-          <p className="text-xs text-slate-400">Entrada</p>
-          <p className="text-slate-900">
-            {dia.entrada ? formatoHoraMx(dia.entrada.marcado_en) : "—"}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Entrada</p>
+          <p className="mt-0.5 text-sm font-medium text-slate-900">
+            {dia.entrada ? formatoHoraMx(dia.entrada.marcado_en) : "--:--"}
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Salida</p>
-          <p className="text-slate-900">
-            {dia.salida ? formatoHoraMx(dia.salida.marcado_en) : "—"}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salida</p>
+          <p className="mt-0.5 text-sm font-medium text-slate-900">
+            {dia.salida ? formatoHoraMx(dia.salida.marcado_en) : "--:--"}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400">Horas</p>
-          <p className="text-slate-900">
-            {dia.horas === null ? "—" : dia.horas.toFixed(1)}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Horas</p>
+          <p className="mt-0.5 text-sm font-semibold text-marca-600">
+            {dia.horas === null ? "--" : dia.horas.toFixed(1)}
           </p>
         </div>
       </div>
@@ -150,9 +157,9 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
 
 /**
  * Agrupa marcas por fecha local (CDMX) y calcula:
- * - entrada: primera del día
- * - salida: última del día
- * - horas: diferencia (null si todavía no hay salida)
+ * - entrada: primera del dia
+ * - salida: ultima del dia
+ * - horas: diferencia (null si todavia no hay salida)
  * - fueRetardo: la marca de entrada trae nota='retardo'
  */
 function agruparPorDia(marcas: Marca[]): ResumenDia[] {
@@ -185,7 +192,7 @@ function agruparPorDia(marcas: Marca[]): ResumenDia[] {
     filas.push({ fechaLocal, entrada, salida, horas, fueRetardo });
   }
 
-  // Ordenar de más reciente a más antiguo
+  // Ordenar de mas reciente a mas antiguo
   filas.sort((a, b) => (a.fechaLocal < b.fechaLocal ? 1 : -1));
   return filas;
 }

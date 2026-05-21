@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import QRCode from "qrcode";
 import { supabase, type Configuracion } from "../../lib/supabase";
 
-/** Genera un código aleatorio corto pero único para el QR */
+/** Genera un codigo aleatorio corto pero unico para el QR */
 function generarCodigoQR(): string {
-  // crypto.randomUUID() está disponible en navegadores modernos
+  // crypto.randomUUID() esta disponible en navegadores modernos
   const id = crypto.randomUUID().replace(/-/g, "");
   return `CYBER7-${id.substring(0, 16).toUpperCase()}`;
 }
@@ -14,7 +14,7 @@ export default function ConfiguracionPage() {
   const [config, setConfig] = useState<Configuracion | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
-  // Form de configuración general
+  // Form de configuracion general
   const [tolerancia, setTolerancia] = useState("");
   const [bono, setBono] = useState("");
 
@@ -63,8 +63,8 @@ export default function ConfiguracionPage() {
 
   const regenerarQR = async () => {
     const confirmar = window.confirm(
-      "Generar un nuevo código DESACTIVA el QR que ya esté pegado en la pared.\n\n" +
-        "Tendrás que imprimir el nuevo y reemplazarlo. ¿Continuar?",
+      "Generar un nuevo codigo DESACTIVA el QR que ya este pegado en la pared.\n\n" +
+        "Tendras que imprimir el nuevo y reemplazarlo. Continuar?",
     );
     if (!confirmar) return;
 
@@ -78,10 +78,10 @@ export default function ConfiguracionPage() {
     setRegenerando(false);
 
     if (error) {
-      setMensaje({ tipo: "error", texto: `No se guardó: ${error.message}` });
+      setMensaje({ tipo: "error", texto: `No se guardo: ${error.message}` });
       return;
     }
-    setMensaje({ tipo: "ok", texto: "Código nuevo generado. Imprime y reemplaza el QR de la pared." });
+    setMensaje({ tipo: "ok", texto: "Codigo nuevo generado. Imprime y reemplaza el QR de la pared." });
     cargar();
   };
 
@@ -107,7 +107,7 @@ export default function ConfiguracionPage() {
       return;
     }
     if (!Number.isFinite(bonoNum) || bonoNum < 0) {
-      setMensaje({ tipo: "error", texto: "El monto del bono debe ser un número válido" });
+      setMensaje({ tipo: "error", texto: "El monto del bono debe ser un numero valido" });
       return;
     }
 
@@ -123,39 +123,46 @@ export default function ConfiguracionPage() {
     setGuardando(false);
 
     if (error) {
-      setMensaje({ tipo: "error", texto: `No se guardó: ${error.message}` });
+      setMensaje({ tipo: "error", texto: `No se guardo: ${error.message}` });
       return;
     }
-    setMensaje({ tipo: "ok", texto: "Configuración guardada" });
+    setMensaje({ tipo: "ok", texto: "Configuracion guardada" });
     cargar();
   };
 
   if (cargando) {
     return (
       <div className="flex h-screen items-center justify-center text-slate-500">
-        Cargando…
+        Cargando...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white px-4 py-4">
-        <div className="mx-auto max-w-2xl">
-          <Link to="/admin" className="text-xs text-slate-500 hover:text-slate-900">
-            ← Panel admin
+    <div className="min-h-screen bg-slate-100">
+      <header className="bg-navy-700">
+        <div className="mx-auto max-w-2xl px-4 py-4">
+          <Link
+            to="/admin"
+            className="flex items-center gap-1 text-[11px] font-medium text-navy-200 transition hover:text-white"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            Panel admin
           </Link>
-          <p className="text-base font-semibold text-slate-900">Configuración</p>
+          <p className="text-sm font-semibold text-white">Configuracion</p>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-2xl space-y-6 px-4 py-6">
         {mensaje && (
           <div
-            className={`card border-l-4 text-sm ${
+            className={`rounded-lg p-4 text-sm ring-1 ${
               mensaje.tipo === "error"
-                ? "border-red-500 bg-red-50 text-red-700"
-                : "border-emerald-500 bg-emerald-50 text-emerald-700"
+                ? "bg-rose-50 text-rose-700 ring-rose-200"
+                : "bg-emerald-50 text-emerald-700 ring-emerald-200"
             }`}
           >
             {mensaje.texto}
@@ -165,29 +172,29 @@ export default function ConfiguracionPage() {
         {/* QR del local */}
         <section className="card space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-slate-700">QR del local</h2>
-            <p className="text-xs text-slate-500">
-              Imprime este QR y pégalo a la entrada de la papelería. Los trabajadores lo
-              escanean al marcar entrada y salida para confirmar que están físicamente en
+            <h2 className="label-section">QR del local</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Imprime este QR y pegalo a la entrada de la papeleria. Los trabajadores lo
+              escanean al marcar entrada y salida para confirmar que estan fisicamente en
               el local.
             </p>
           </div>
 
-          <div className="flex flex-col items-center gap-3 rounded-xl bg-slate-50 p-4 sm:flex-row sm:items-start">
+          <div className="flex flex-col items-center gap-3 rounded-lg bg-slate-50 p-4 sm:flex-row sm:items-start">
             {qrDataUrl ? (
               <img
                 src={qrDataUrl}
-                alt="Código QR del local"
+                alt="Codigo QR del local"
                 className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2"
               />
             ) : (
               <div className="flex h-44 w-44 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">
-                Generando…
+                Generando...
               </div>
             )}
 
             <div className="min-w-0 flex-1 space-y-2">
-              <p className="text-xs text-slate-500">Código actual:</p>
+              <p className="text-xs text-slate-500">Codigo actual:</p>
               <code className="block break-all rounded-md bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200">
                 {config?.qr_local}
               </code>
@@ -197,36 +204,52 @@ export default function ConfiguracionPage() {
                   type="button"
                   onClick={descargarPNG}
                   disabled={!qrDataUrl}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
                 >
-                  ⬇ PNG
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M7 10l5 5 5-5" />
+                    <path d="M12 15V3" />
+                  </svg>
+                  PNG
                 </button>
                 <Link
                   to="/admin/configuracion/imprimir"
                   target="_blank"
                   rel="noopener"
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                 >
-                  🖨 Hoja imprimible
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 9V2h12v7" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect width="12" height="8" x="6" y="14" />
+                  </svg>
+                  Hoja imprimible
                 </Link>
                 <button
                   type="button"
                   onClick={regenerarQR}
                   disabled={regenerando}
-                  className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
                 >
-                  {regenerando ? "Generando…" : "↻ Generar nuevo"}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M8 16H3v5" />
+                  </svg>
+                  {regenerando ? "Generando..." : "Generar nuevo"}
                 </button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Configuración general */}
+        {/* Configuracion general */}
         <form onSubmit={guardarConfig} className="card space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-slate-700">Configuración general</h2>
-            <p className="text-xs text-slate-500">
+            <h2 className="label-section">Configuracion general</h2>
+            <p className="mt-1 text-xs text-slate-500">
               Reglas que afectan a todos los trabajadores.
             </p>
           </div>
@@ -246,7 +269,7 @@ export default function ConfiguracionPage() {
               required
             />
             <p className="mt-1 text-xs text-slate-400">
-              Si llega después de su hora de entrada + esta tolerancia, cuenta como retardo.
+              Si llega despues de su hora de entrada + esta tolerancia, cuenta como retardo.
             </p>
           </div>
 
@@ -270,7 +293,7 @@ export default function ConfiguracionPage() {
 
           <div className="flex justify-end">
             <button type="submit" disabled={guardando} className="btn-primary">
-              {guardando ? "Guardando…" : "Guardar cambios"}
+              {guardando ? "Guardando..." : "Guardar cambios"}
             </button>
           </div>
         </form>

@@ -38,7 +38,7 @@ export default function TrabajadorForm() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Cargar datos si es edición
+  // Cargar datos si es edicion
   useEffect(() => {
     if (!esEdicion) return;
     const cargar = async () => {
@@ -48,7 +48,7 @@ export default function TrabajadorForm() {
         .eq("id", id)
         .single();
       if (e1 || !t) {
-        setError(e1?.message ?? "No se encontró el trabajador");
+        setError(e1?.message ?? "No se encontro el trabajador");
         setCargando(false);
         return;
       }
@@ -111,7 +111,7 @@ export default function TrabajadorForm() {
       return;
     }
     if (!Number.isFinite(tarifaNum) || tarifaNum < 0) {
-      setError("La tarifa por hora debe ser un número válido");
+      setError("La tarifa por hora debe ser un numero valido");
       setGuardando(false);
       return;
     }
@@ -125,7 +125,7 @@ export default function TrabajadorForm() {
           throw new Error("El usuario es obligatorio");
         }
         if (password.length < 6) {
-          throw new Error("La contraseña debe tener al menos 6 caracteres");
+          throw new Error("La contrasena debe tener al menos 6 caracteres");
         }
 
         const { data, error: errFn } = await supabase.functions.invoke(
@@ -159,7 +159,7 @@ export default function TrabajadorForm() {
         if (data?.error) throw new Error(data.error);
         trabajadorId = data?.trabajador?.id;
       } else {
-        // EDICIÓN: actualizar campos editables
+        // EDICION: actualizar campos editables
         const { error: errUp } = await supabase
           .from("trabajadores")
           .update({
@@ -184,7 +184,7 @@ export default function TrabajadorForm() {
         const { error: errH } = await supabase
           .from("horarios")
           .upsert(filas, { onConflict: "trabajador_id,dia_semana" });
-        if (errH) throw new Error(`Trabajador guardado, pero falló el horario: ${errH.message}`);
+        if (errH) throw new Error(`Trabajador guardado, pero fallo el horario: ${errH.message}`);
       }
 
       navigate("/admin/trabajadores");
@@ -198,22 +198,26 @@ export default function TrabajadorForm() {
   if (cargando) {
     return (
       <div className="flex h-screen items-center justify-center text-slate-500">
-        Cargando…
+        Cargando...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white px-4 py-4">
-        <div className="mx-auto max-w-2xl">
+    <div className="min-h-screen bg-slate-100">
+      <header className="bg-navy-700">
+        <div className="mx-auto max-w-2xl px-4 py-4">
           <Link
             to="/admin/trabajadores"
-            className="text-xs text-slate-500 hover:text-slate-900"
+            className="flex items-center gap-1 text-[11px] font-medium text-navy-200 transition hover:text-white"
           >
-            ← Trabajadores
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            Trabajadores
           </Link>
-          <p className="text-base font-semibold text-slate-900">
+          <p className="text-sm font-semibold text-white">
             {esEdicion ? "Editar trabajador" : "Nuevo trabajador"}
           </p>
         </div>
@@ -222,14 +226,14 @@ export default function TrabajadorForm() {
       <main className="mx-auto max-w-2xl px-4 py-6">
         <form onSubmit={guardar} className="space-y-6">
           {error && (
-            <div className="card border-l-4 border-red-500 bg-red-50 text-sm text-red-700">
+            <div className="rounded-lg bg-rose-50 p-4 text-sm text-rose-700 ring-1 ring-rose-200">
               {error}
             </div>
           )}
 
-          {/* Datos básicos */}
+          {/* Datos basicos */}
           <div className="card space-y-4">
-            <h2 className="text-sm font-semibold text-slate-700">Datos personales</h2>
+            <h2 className="label-section">Datos personales</h2>
 
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
@@ -239,14 +243,14 @@ export default function TrabajadorForm() {
                 className="input-field"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej. María García"
+                placeholder="Ej. Maria Garcia"
                 required
               />
             </div>
 
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
-                Usuario para iniciar sesión
+                Usuario para iniciar sesion
               </label>
               <input
                 className="input-field"
@@ -258,7 +262,7 @@ export default function TrabajadorForm() {
               />
               {esEdicion && (
                 <p className="mt-1 text-xs text-slate-400">
-                  El usuario no se puede cambiar después de creado.
+                  El usuario no se puede cambiar despues de creado.
                 </p>
               )}
             </div>
@@ -266,19 +270,19 @@ export default function TrabajadorForm() {
             {!esEdicion && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Contraseña inicial
+                  Contrasena inicial
                 </label>
                 <input
                   type="text"
                   className="input-field"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Minimo 6 caracteres"
                   minLength={6}
                   required
                 />
                 <p className="mt-1 text-xs text-slate-400">
-                  Compártela con el trabajador; podrá cambiarla más adelante.
+                  Compartela con el trabajador; podra cambiarla mas adelante.
                 </p>
               </div>
             )}
@@ -304,7 +308,7 @@ export default function TrabajadorForm() {
                 type="checkbox"
                 checked={esAdmin}
                 onChange={(e) => setEsAdmin(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-300 text-marca-600 focus:ring-marca-500"
+                className="h-4 w-4 rounded border-slate-300 text-navy-700 focus:ring-navy-700"
               />
               <span className="text-sm text-slate-700">
                 Es administrador (puede gestionar trabajadores y ver reportes)
@@ -315,9 +319,9 @@ export default function TrabajadorForm() {
           {/* Horarios */}
           <div className="card space-y-3">
             <div>
-              <h2 className="text-sm font-semibold text-slate-700">Horario semanal</h2>
-              <p className="text-xs text-slate-500">
-                Marca los días de descanso o ajusta las horas de cada día.
+              <h2 className="label-section">Horario semanal</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Marca los dias de descanso o ajusta las horas de cada dia.
               </p>
             </div>
 
@@ -382,22 +386,22 @@ export default function TrabajadorForm() {
               Cancelar
             </Link>
             <button type="submit" disabled={guardando} className="btn-primary">
-              {guardando ? "Guardando…" : esEdicion ? "Guardar cambios" : "Crear trabajador"}
+              {guardando ? "Guardando..." : esEdicion ? "Guardar cambios" : "Crear trabajador"}
             </button>
           </div>
         </form>
 
-        {/* Zona peligrosa: solo en edición y si no soy yo mismo */}
+        {/* Zona peligrosa: solo en edicion y si no soy yo mismo */}
         {esEdicion && trabajadorActual && trabajadorActual.id !== usuarioActual?.id && (
-          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50/40 p-6">
-            <h2 className="text-sm font-semibold text-red-800">Zona peligrosa</h2>
-            <p className="mt-1 text-xs text-red-700">
+          <div className="mt-8 rounded-lg bg-rose-50 p-6 ring-1 ring-rose-200">
+            <h2 className="label-section text-rose-700">Zona peligrosa</h2>
+            <p className="mt-1 text-xs text-rose-700">
               Elimina permanentemente al trabajador y todo su historial de marcas. No se puede deshacer.
             </p>
             <button
               type="button"
               onClick={() => setMostrarConfirmar(true)}
-              className="mt-3 inline-flex items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+              className="mt-3 inline-flex items-center justify-center rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
             >
               Eliminar permanentemente
             </button>

@@ -30,7 +30,7 @@ export default function Marcar() {
   // Bandera para que no se procese el mismo escaneo dos veces seguidas
   const procesandoRef = useRef(false);
 
-  // Arranca el escáner cuando montamos la pantalla
+  // Arranca el escaner cuando montamos la pantalla
   useEffect(() => {
     if (!trabajador) return;
 
@@ -47,7 +47,7 @@ export default function Marcar() {
           procesandoRef.current = true;
           procesarEscaneo(decoded);
         },
-        // onScanFailure: silencioso, dispara muchísimo
+        // onScanFailure: silencioso, dispara muchisimo
         () => undefined,
       )
       .then(() => {
@@ -58,7 +58,7 @@ export default function Marcar() {
         const msg = err instanceof Error ? err.message : String(err);
         setEstado({
           kind: "error",
-          mensaje: `No se pudo abrir la cámara: ${msg}`,
+          mensaje: `No se pudo abrir la camara: ${msg}`,
         });
       });
 
@@ -78,7 +78,7 @@ export default function Marcar() {
       }
       s.clear();
     } catch {
-      // ignorar — puede pasar si nunca arrancó del todo
+      // ignorar -- puede pasar si nunca arranco del todo
     }
     scannerRef.current = null;
   };
@@ -88,14 +88,14 @@ export default function Marcar() {
     setEstado({ kind: "procesando" });
 
     try {
-      // 1) Traer configuración para validar el QR
+      // 1) Traer configuracion para validar el QR
       const { data: configData, error: errConfig } = await supabase
         .from("configuracion")
         .select("*")
         .eq("id", 1)
         .single();
       if (errConfig || !configData) {
-        throw new Error(errConfig?.message ?? "No se pudo leer la configuración.");
+        throw new Error(errConfig?.message ?? "No se pudo leer la configuracion.");
       }
       const config = configData as Configuracion;
       const qrValido = codigoEscaneado.trim() === config.qr_local.trim();
@@ -104,7 +104,7 @@ export default function Marcar() {
         // El QR es de otra cosa (no del local). Avisamos y dejamos volver a intentar.
         setEstado({
           kind: "error",
-          mensaje: "Ese código no es el del local. Pídele a Hugo el QR correcto.",
+          mensaje: "Ese codigo no es el del local. Pidele a Hugo el QR correcto.",
         });
         procesandoRef.current = false;
         return;
@@ -145,7 +145,7 @@ export default function Marcar() {
         );
       }
 
-      // 4) Insertar la marca. Decisión: el retardo se guarda en silencio en
+      // 4) Insertar la marca. Decision: el retardo se guarda en silencio en
       //    `nota` para que Hugo lo vea en los reportes; el trabajador NO se
       //    entera al momento de marcar.
       const nota = tipo === "entrada" && fueRetardo ? "retardo" : null;
@@ -156,11 +156,11 @@ export default function Marcar() {
         qr_codigo_escaneado: codigoEscaneado,
         qr_valido: true,
         nota,
-        // lat / lng se quedan en NULL — geolocalización se implementará después
+        // lat / lng se quedan en NULL -- geolocalizacion se implementara despues
       });
       if (errInsert) throw new Error(errInsert.message);
 
-      // 5) Apagar cámara y mostrar éxito
+      // 5) Apagar camara y mostrar exito
       await detenerScanner();
       setEstado({ kind: "exito", tipo, hora: ahora.toISOString() });
     } catch (err) {
@@ -175,18 +175,25 @@ export default function Marcar() {
   if (!trabajador) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white px-4 py-4">
-        <div className="mx-auto flex max-w-md items-center justify-between">
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-900">
-            ← Atrás
+    <div className="min-h-screen bg-slate-100">
+      <header className="bg-navy-700">
+        <div className="mx-auto flex max-w-md items-center justify-between px-4 py-4">
+          <Link
+            to="/"
+            className="flex items-center gap-1 text-sm font-medium text-navy-100 transition hover:text-white"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            Atras
           </Link>
-          <p className="text-base font-semibold text-slate-900">Marcar</p>
-          <span className="w-12" />
+          <p className="text-sm font-semibold text-white">Marcar asistencia</p>
+          <span className="w-14" />
         </div>
       </header>
 
-      <main className="mx-auto max-w-md px-4 py-6 space-y-4">
+      <main className="mx-auto max-w-md space-y-4 px-4 py-6">
         {estado.kind === "exito" ? (
           <PantallaExito
             tipo={estado.tipo}
@@ -196,14 +203,15 @@ export default function Marcar() {
         ) : (
           <>
             <div className="card">
-              <p className="mb-1 text-sm font-semibold text-slate-900">
-                Apunta tu cámara al QR del local
+              <p className="label-section">Escaner</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">
+                Apunta tu camara al QR del local
               </p>
-              <p className="text-xs text-slate-500">
-                {estado.kind === "preparando" && "Preparando la cámara…"}
+              <p className="mt-1 text-xs text-slate-500">
+                {estado.kind === "preparando" && "Preparando la camara..."}
                 {estado.kind === "esperando_scan" &&
-                  "La app detecta automáticamente entrada o salida según la hora del día."}
-                {estado.kind === "procesando" && "Procesando marca…"}
+                  "La app detecta automaticamente entrada o salida segun la hora del dia."}
+                {estado.kind === "procesando" && "Procesando marca..."}
                 {estado.kind === "error" && "Hubo un problema. Lee el aviso abajo."}
               </p>
             </div>
@@ -211,12 +219,12 @@ export default function Marcar() {
             {/* Contenedor donde html5-qrcode pinta el video */}
             <div
               id={QR_ELEMENT_ID}
-              className="overflow-hidden rounded-2xl bg-black"
+              className="overflow-hidden rounded-lg bg-black ring-1 ring-slate-300"
               style={{ minHeight: 280 }}
             />
 
             {estado.kind === "error" && (
-              <div className="card border border-rose-200 bg-rose-50 text-sm text-rose-700">
+              <div className="rounded-lg bg-rose-50 p-5 text-sm text-rose-700 ring-1 ring-rose-200">
                 <p className="font-semibold">No se pudo registrar la marca</p>
                 <p className="mt-1">{estado.mensaje}</p>
                 <button
@@ -255,14 +263,16 @@ function PantallaExito({
 
   return (
     <div className="card text-center">
-      <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">
-        ✓
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-emerald-200">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
       </div>
-      <p className="text-xs uppercase tracking-wide text-slate-500">
+      <p className="label-section">
         {tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}
       </p>
-      <p className="mt-1 text-3xl font-bold text-slate-900">{formatoHoraMx(hora)}</p>
-      <p className="mt-1 text-sm text-slate-500">{fechaLarga}</p>
+      <p className="mt-1 text-3xl font-bold text-navy-700">{formatoHoraMx(hora)}</p>
+      <p className="mt-1 text-sm capitalize text-slate-500">{fechaLarga}</p>
 
       <button onClick={onIrAHome} className="btn-primary mt-6 w-full">
         Listo
