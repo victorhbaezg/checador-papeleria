@@ -12,9 +12,9 @@
   body {
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
+    color: #0f172a;
   }
 
-  /* Inputs y botones se ven mejor sin estilos del sistema */
   input,
   button,
   textarea,
@@ -24,19 +24,32 @@
 }
 
 @layer components {
+  /* Boton primario: navy solido, look empresarial */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-xl bg-marca-500 px-6 py-3 text-base font-semibold text-white shadow-sm transition active:scale-95 hover:bg-marca-600 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg bg-navy-700 px-6 py-3 text-base font-semibold text-white shadow-sm transition active:scale-[0.98] hover:bg-navy-800 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* Boton secundario: borde fino, sin fondo */
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-base font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95 disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[0.98] disabled:opacity-50;
+  }
+
+  /* Boton de acento (cyan): para acciones secundarias destacadas */
+  .btn-accent {
+    @apply inline-flex items-center justify-center rounded-lg bg-marca-500 px-6 py-3 text-base font-semibold text-white shadow-sm transition active:scale-[0.98] hover:bg-marca-600 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .input-field {
-    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-marca-500 focus:outline-none focus:ring-2 focus:ring-marca-500/30;
+    @apply w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-navy-700 focus:outline-none focus:ring-2 focus:ring-navy-700/20;
   }
 
+  /* Tarjeta empresarial: bordes finos, esquinas moderadas, sin sombra fuerte */
   .card {
-    @apply rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200;
+    @apply rounded-lg bg-white p-6 ring-1 ring-slate-200;
+  }
+
+  /* Etiqueta tipo "label" empresarial: texto chico, mayusculas, espaciado */
+  .label-section {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-slate-500;
   }
 }
