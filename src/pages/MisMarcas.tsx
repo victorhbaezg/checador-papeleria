@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { supabase, type Marca, type Horario } from "../lib/supabase";
+import {
+  supabase,
+  type Marca,
+  type Horario,
+  type FaltaJustificada,
+  type HorarioExcepcion,
+} from "../lib/supabase";
 import { formatoFechaCorta, formatoHoraMx, inicioSemanaMx } from "../lib/marcado";
 import { calcularResumenSemana, type ResumenSemana } from "../lib/reporte";
 import { pesos } from "../lib/dias";
@@ -33,20 +39,36 @@ export default function MisMarcas() {
     setError(null);
 
     const inicioUtc = inicioSemanaMx();
+    const inicioStr = inicioUtc.toISOString().substring(0, 10);
 
-    const [{ data: marcasData, error: errMarcas }, { data: horariosData, error: errHorarios }] =
-      await Promise.all([
-        supabase
-          .from("marcas")
-          .select("*")
-          .eq("trabajador_id", trabajadorId)
-          .gte("marcado_en", inicioUtc.toISOString())
-          .order("marcado_en", { ascending: true }),
-        supabase
-          .from("horarios")
-          .select("*")
-          .eq("trabajador_id", trabajadorId),
-      ]);
+    const [
+      { data: marcasData, error: errMarcas },
+      { data: horariosData, error: errHorarios },
+      { data: faltasJustData },
+      { data: excepcionesData },
+    ] = await Promise.all([
+      supabase
+        .from("marcas")
+        .select("*")
+        .eq("trabajador_id", trabajadorId)
+        .gte("marcado_en", inicioUtc.toISOString())
+        .order("marcado_en", { ascending: true }),
+      supabase
+        .from("horarios")
+        .select("*")
+        .eq("trabajador_id", trabajadorId),
+      supabase
+        .from("faltas_justificadas")
+        .select("*")
+        .eq("trabajador_id", trabajadorId)
+        .gte("fecha", inicioStr),
+      supabase
+        .from("horario_excepciones")
+        .select("*")
+        .eq("trabajador_id", trabajadorId)
+        .gte("fecha", inicioStr)
+        .eq("es_dia_libre", true),
+    ]);
 
     if (errMarcas || errHorarios) {
       setError(errMarcas?.message ?? errHorarios?.message ?? "Error al cargar datos");
@@ -56,10 +78,18 @@ export default function MisMarcas() {
 
     const marcas = (marcasData ?? []) as Marca[];
     const horarios = (horariosData ?? []) as Horario[];
+    const faltasJust = (faltasJustData ?? []) as FaltaJustificada[];
+    const excepciones = (excepcionesData ?? []) as HorarioExcepcion[];
+
+    const diasExcluidos = new Set<string>();
+    for (const f of faltasJust) diasExcluidos.add(f.fecha);
+    for (const e of excepciones) {
+      if (e.es_dia_libre) diasExcluidos.add(e.fecha);
+    }
 
     setDias(agruparPorDia(marcas));
     setResumen(
-      calcularResumenSemana(marcas, horarios, trabajador?.tarifa_hora ?? 0),
+      calcularResumenSemana(marcas, horarios, trabajador?.tarifa_hora ?? 0, diasExcluidos),
     );
     setCargando(false);
   };
@@ -237,23 +267,24 @@ function agruparPorDia(marcas: Marca[]): ResumenDia[] {
     porDia.set(fechaLocal, arr);
   }
 
-  const filas: ResumenDia[] = [];
-  for (const [fechaLocal, lista] of porDia.entries()) {
-    const entradas = lista.filter((m) => m.tipo === "entrada");
-    const salidas = lista.filter((m) => m.tipo === "salida");
-    const entrada = entradas[0] ?? null;
-    const salida = salidas[salidas.length - 1] ?? null;
-    let horas: number | null = null;
-    if (entrada && salida) {
-      const ms =
-        new Date(salida.marcado_en).getTime() - new Date(entrada.marcado_en).getTime();
-      if (ms > 0) horas = ms / (1000 * 60 * 60);
-    }
-    const fueRetardo = entrada?.nota === "retardo";
-    filas.push({ fechaLocal, entrada, salida, horas, fueRetardo });
-  }
+  return Array.from(porDia.entries())
+    .sort(([a], [b]) => b.localeCompare(a)) // mas reciente primero
+    .map(([fechaLocal, ms]) => {
+      const entradas = ms.filter((m) => m.tipo === "entrada");
+      const salidas = ms.filter((m) => m.tipo === "salida");
+      const entrada = entradas[0] ?? null;
+      const salida = salidas[salidas.length - 1] ?? null;
 
-  // Ordenar de mas reciente a mas antiguo
-  filas.sort((a, b) => (a.fechaLocal < b.fechaLocal ? 1 : -1));
-  return filas;
+      let horas: number | null = null;
+      if (entrada && salida) {
+        const ms2 =
+          new Date(salida.marcado_en).getTime() -
+          new Date(entrada.marcado_en).getTime();
+        if (ms2 > 0) horas = ms2 / 3_600_000;
+      }
+
+      const fueRetardo = entradas.some((m) => m.nota === "retardo" && !m.justificada);
+
+      return { fechaLocal, entrada, salida, horas, fueRetardo };
+    });
 }

@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { supabase, type Marca, type Horario } from "../lib/supabase";
+import {
+  supabase,
+  type Marca,
+  type Horario,
+  type FaltaJustificada,
+  type HorarioExcepcion,
+} from "../lib/supabase";
 import { ZONA_HORARIA } from "../lib/marcado";
 import { inicioMesMx, calcularResumenMes, type ResumenMes } from "../lib/reporte";
 import { pesos } from "../lib/dias";
@@ -35,11 +41,14 @@ export default function MiMes() {
     setError(null);
 
     const inicioUtc = inicioMesMx();
+    const inicioStr = inicioUtc.toISOString().substring(0, 10);
 
     const [
       { data: config },
       { data: marcasData, error: errM },
       { data: horariosData, error: errH },
+      { data: faltasJustData },
+      { data: excepcionesData },
     ] = await Promise.all([
       supabase.from("configuracion").select("monto_bono_mensual").single(),
       supabase
@@ -49,6 +58,17 @@ export default function MiMes() {
         .gte("marcado_en", inicioUtc.toISOString())
         .order("marcado_en", { ascending: true }),
       supabase.from("horarios").select("*").eq("trabajador_id", trabajadorId),
+      supabase
+        .from("faltas_justificadas")
+        .select("*")
+        .eq("trabajador_id", trabajadorId)
+        .gte("fecha", inicioStr),
+      supabase
+        .from("horario_excepciones")
+        .select("*")
+        .eq("trabajador_id", trabajadorId)
+        .gte("fecha", inicioStr)
+        .eq("es_dia_libre", true),
     ]);
 
     if (errM || errH) {
@@ -63,9 +83,18 @@ export default function MiMes() {
 
     const marcas = (marcasData ?? []) as Marca[];
     const horarios = (horariosData ?? []) as Horario[];
+    const faltasJust = (faltasJustData ?? []) as FaltaJustificada[];
+    const excepciones = (excepcionesData ?? []) as HorarioExcepcion[];
+
+    // Construir set de dias excluidos (no cuentan como falta)
+    const diasExcluidos = new Set<string>();
+    for (const f of faltasJust) diasExcluidos.add(f.fecha);
+    for (const e of excepciones) {
+      if (e.es_dia_libre) diasExcluidos.add(e.fecha);
+    }
 
     setResumen(
-      calcularResumenMes(marcas, horarios, trabajador?.tarifa_hora ?? 0, bonoReal),
+      calcularResumenMes(marcas, horarios, trabajador?.tarifa_hora ?? 0, bonoReal, diasExcluidos),
     );
     setCargando(false);
   };
@@ -92,15 +121,12 @@ export default function MiMes() {
       </header>
 
       <main className="mx-auto max-w-md space-y-4 px-4 py-6">
-        {/* Encabezado de mes */}
         <div>
           <h1 className="text-lg font-bold text-navy-700">{nombreMes()}</h1>
           <p className="mt-0.5 text-sm text-slate-500">Del 1 al dia de hoy</p>
         </div>
 
-        {cargando && (
-          <p className="text-sm text-slate-400">Calculando tu mes...</p>
-        )}
+        {cargando && <p className="text-sm text-slate-400">Calculando tu mes...</p>}
 
         {error && (
           <div className="rounded-lg bg-rose-50 p-5 text-sm text-rose-700 ring-1 ring-rose-200">
@@ -110,7 +136,6 @@ export default function MiMes() {
 
         {!cargando && !error && resumen && (
           <>
-            {/* Metricas del mes */}
             <div className="card grid grid-cols-3 gap-2">
               <div className="text-center">
                 <p className="label-section">Horas</p>
@@ -132,7 +157,6 @@ export default function MiMes() {
               </div>
             </div>
 
-            {/* Estado del bono */}
             <div className={`card border-l-4 ${resumen.ganoBonoMes ? "border-l-emerald-500" : "border-l-slate-300"}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -166,7 +190,6 @@ export default function MiMes() {
               </div>
             </div>
 
-            {/* Sueldo estimado */}
             {trabajador.tarifa_hora > 0 && (
               <div className="card border-t-2 border-marca-500">
                 <div className="flex items-center justify-between">

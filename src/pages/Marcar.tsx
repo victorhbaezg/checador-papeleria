@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 import { useAuth } from "../lib/auth";
-import { supabase, type Configuracion, type Horario, type Marca } from "../lib/supabase";
+import { supabase, type Configuracion, type Horario, type HorarioExcepcion, type Marca } from "../lib/supabase";
 import {
   diaSemanaMx,
   esRetardo,
@@ -27,10 +27,8 @@ export default function Marcar() {
 
   const [estado, setEstado] = useState<Estado>({ kind: "preparando" });
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  // Bandera para que no se procese el mismo escaneo dos veces seguidas
   const procesandoRef = useRef(false);
 
-  // Arranca el escaner cuando montamos la pantalla
   useEffect(() => {
     if (!trabajador) return;
 
@@ -47,7 +45,6 @@ export default function Marcar() {
           procesandoRef.current = true;
           procesarEscaneo(decoded);
         },
-        // onScanFailure: silencioso, dispara muchisimo
         () => undefined,
       )
       .then(() => {
@@ -78,7 +75,7 @@ export default function Marcar() {
       }
       s.clear();
     } catch {
-      // ignorar -- puede pasar si nunca arranco del todo
+      // ignorar
     }
     scannerRef.current = null;
   };
@@ -101,7 +98,6 @@ export default function Marcar() {
       const qrValido = codigoEscaneado.trim() === config.qr_local.trim();
 
       if (!qrValido) {
-        // El QR es de otra cosa (no del local). Avisamos y dejamos volver a intentar.
         setEstado({
           kind: "error",
           mensaje: "Ese codigo no es el del local. Pidele a Hugo el QR correcto.",
@@ -110,9 +106,8 @@ export default function Marcar() {
         return;
       }
 
-      // 2) Traer marcas de hoy del trabajador para decidir entrada/salida
-      const hoyMx = fechaHoyMx(); // YYYY-MM-DD en CDMX
-      // Rango UTC: 00:00 CDMX = 06:00 UTC; +24h
+      // 2) Traer marcas de hoy del trabajador
+      const hoyMx = fechaHoyMx();
       const inicioHoyUtc = new Date(`${hoyMx}T06:00:00.000Z`);
       const finHoyUtc = new Date(inicioHoyUtc.getTime() + 24 * 60 * 60 * 1000);
 
@@ -127,27 +122,53 @@ export default function Marcar() {
 
       const tipo = siguienteTipo((marcasHoyData ?? []) as Marca[]);
 
-      // 3) Si es entrada, verificar si hay retardo (silencioso para el trabajador)
+      // 3) Si es entrada, verificar retardo considerando excepciones de horario
       const ahora = new Date();
       let fueRetardo = false;
       if (tipo === "entrada") {
         const dia = diaSemanaMx(ahora);
-        const { data: horarioData } = await supabase
-          .from("horarios")
+
+        // Consultar si existe excepcion de horario para hoy
+        const { data: excepcionData } = await supabase
+          .from("horario_excepciones")
           .select("*")
           .eq("trabajador_id", trabajador.id)
-          .eq("dia_semana", dia)
+          .eq("fecha", hoyMx)
           .maybeSingle();
-        fueRetardo = esRetardo(
-          ahora,
-          (horarioData as Horario | null) ?? null,
-          config.tolerancia_retardo_minutos,
-        );
+
+        const excepcion = excepcionData as HorarioExcepcion | null;
+
+        if (excepcion && excepcion.es_dia_libre) {
+          // Dia libre por excepcion: no hay retardo posible
+          fueRetardo = false;
+        } else if (excepcion && excepcion.hora_entrada_esperada) {
+          // Horario especial: construimos un Horario virtual con las horas de la excepcion
+          const horarioVirtual: Horario = {
+            id: "",
+            trabajador_id: trabajador.id,
+            dia_semana: dia,
+            hora_entrada_esperada: excepcion.hora_entrada_esperada,
+            hora_salida_esperada: excepcion.hora_salida_esperada ?? "00:00:00",
+            descansa: false,
+          };
+          fueRetardo = esRetardo(ahora, horarioVirtual, config.tolerancia_retardo_minutos);
+        } else {
+          // Sin excepcion: usar el horario regular del dia
+          const { data: horarioData } = await supabase
+            .from("horarios")
+            .select("*")
+            .eq("trabajador_id", trabajador.id)
+            .eq("dia_semana", dia)
+            .maybeSingle();
+          fueRetardo = esRetardo(
+            ahora,
+            (horarioData as Horario | null) ?? null,
+            config.tolerancia_retardo_minutos,
+          );
+        }
       }
 
-      // 4) Insertar la marca. Decision: el retardo se guarda en silencio en
-      //    `nota` para que Hugo lo vea en los reportes; el trabajador NO se
-      //    entera al momento de marcar.
+      // 4) Insertar la marca
       const nota = tipo === "entrada" && fueRetardo ? "retardo" : null;
       const { error: errInsert } = await supabase.from("marcas").insert({
         trabajador_id: trabajador.id,
@@ -156,7 +177,6 @@ export default function Marcar() {
         qr_codigo_escaneado: codigoEscaneado,
         qr_valido: true,
         nota,
-        // lat / lng se quedan en NULL -- geolocalizacion se implementara despues
       });
       if (errInsert) throw new Error(errInsert.message);
 
@@ -169,8 +189,6 @@ export default function Marcar() {
       procesandoRef.current = false;
     }
   };
-
-  // -------- Vistas --------
 
   if (!trabajador) return null;
 
@@ -216,7 +234,6 @@ export default function Marcar() {
               </p>
             </div>
 
-            {/* Contenedor donde html5-qrcode pinta el video */}
             <div
               id={QR_ELEMENT_ID}
               className="overflow-hidden rounded-lg bg-black ring-1 ring-slate-300"

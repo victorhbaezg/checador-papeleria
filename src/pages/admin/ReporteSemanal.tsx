@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase, type Trabajador, type Marca, type Horario } from "../../lib/supabase";
+import {
+  supabase,
+  type Trabajador,
+  type Marca,
+  type Horario,
+  type FaltaJustificada,
+  type HorarioExcepcion,
+} from "../../lib/supabase";
 import { inicioSemanaMx, ZONA_HORARIA } from "../../lib/marcado";
 import { calcularResumenSemana, type ResumenSemana } from "../../lib/reporte";
 import { pesos } from "../../lib/dias";
@@ -20,6 +27,21 @@ function fechaCorta(d: Date): string {
   }).format(d);
 }
 
+function buildDiasExcluidos(
+  faltasJust: FaltaJustificada[],
+  excepciones: HorarioExcepcion[],
+  trabajadorId: string,
+): Set<string> {
+  const set = new Set<string>();
+  for (const f of faltasJust) {
+    if (f.trabajador_id === trabajadorId) set.add(f.fecha);
+  }
+  for (const e of excepciones) {
+    if (e.trabajador_id === trabajadorId && e.es_dia_libre) set.add(e.fecha);
+  }
+  return set;
+}
+
 export default function ReporteSemanal() {
   const [filas, setFilas] = useState<FilaReporte[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -27,8 +49,6 @@ export default function ReporteSemanal() {
 
   const inicioUtc = inicioSemanaMx();
 
-  // Fecha de fin de semana para mostrar en el encabezado.
-  // Si hoy es antes del viernes, mostramos hasta hoy; si es viernes o despues, hasta el viernes.
   const hoyUtc = new Date();
   const diasHastaViernes = 5 - (hoyUtc.getDay() === 0 ? 7 : hoyUtc.getDay());
   const finUtc =
@@ -44,7 +64,6 @@ export default function ReporteSemanal() {
     setCargando(true);
     setError(null);
 
-    // 1. Todos los trabajadores activos (sin importar si son admin o no).
     const { data: trabajadores, error: errT } = await supabase
       .from("trabajadores")
       .select("*")
@@ -58,41 +77,50 @@ export default function ReporteSemanal() {
     }
 
     const ids = (trabajadores as Trabajador[]).map((t) => t.id);
+    const inicioStr = inicioUtc.toISOString().substring(0, 10);
 
-    // 2. Marcas de la semana para todos los trabajadores.
-    const { data: marcas, error: errM } = await supabase
-      .from("marcas")
-      .select("*")
-      .in("trabajador_id", ids)
-      .gte("marcado_en", inicioUtc.toISOString())
-      .order("marcado_en", { ascending: true });
+    const [
+      { data: marcas, error: errM },
+      { data: horarios, error: errH },
+      { data: faltasJustData },
+      { data: excepcionesData },
+    ] = await Promise.all([
+      supabase
+        .from("marcas")
+        .select("*")
+        .in("trabajador_id", ids)
+        .gte("marcado_en", inicioUtc.toISOString())
+        .order("marcado_en", { ascending: true }),
+      supabase.from("horarios").select("*").in("trabajador_id", ids),
+      supabase
+        .from("faltas_justificadas")
+        .select("*")
+        .in("trabajador_id", ids)
+        .gte("fecha", inicioStr),
+      supabase
+        .from("horario_excepciones")
+        .select("*")
+        .in("trabajador_id", ids)
+        .gte("fecha", inicioStr)
+        .eq("es_dia_libre", true),
+    ]);
 
-    if (errM) {
-      setError(errM.message);
+    if (errM || errH) {
+      setError(errM?.message ?? errH?.message ?? "Error al cargar datos");
       setCargando(false);
       return;
     }
 
-    // 3. Horarios de todos los trabajadores.
-    const { data: horarios, error: errH } = await supabase
-      .from("horarios")
-      .select("*")
-      .in("trabajador_id", ids);
-
-    if (errH) {
-      setError(errH.message);
-      setCargando(false);
-      return;
-    }
-
-    // 4. Calcular resumen por trabajador.
     const marcasData = (marcas ?? []) as Marca[];
     const horariosData = (horarios ?? []) as Horario[];
+    const faltasJust = (faltasJustData ?? []) as FaltaJustificada[];
+    const excepciones = (excepcionesData ?? []) as HorarioExcepcion[];
 
     const resultado: FilaReporte[] = (trabajadores as Trabajador[]).map((t) => {
       const misMarcas = marcasData.filter((m) => m.trabajador_id === t.id);
       const misHorarios = horariosData.filter((h) => h.trabajador_id === t.id);
-      const resumen = calcularResumenSemana(misMarcas, misHorarios, t.tarifa_hora);
+      const diasExcluidos = buildDiasExcluidos(faltasJust, excepciones, t.id);
+      const resumen = calcularResumenSemana(misMarcas, misHorarios, t.tarifa_hora, diasExcluidos);
       return { trabajador: t, resumen };
     });
 
@@ -123,17 +151,14 @@ export default function ReporteSemanal() {
       </header>
 
       <main className="mx-auto max-w-2xl space-y-5 px-4 py-6">
-        {/* Encabezado de semana */}
         <div>
           <h1 className="text-lg font-bold text-navy-700">Semana en curso</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            {fechaCorta(inicioUtc)} — {fechaCorta(finUtc)}
+            {fechaCorta(inicioUtc)} &mdash; {fechaCorta(finUtc)}
           </p>
         </div>
 
-        {cargando && (
-          <p className="text-sm text-slate-400">Calculando reporte...</p>
-        )}
+        {cargando && <p className="text-sm text-slate-400">Calculando reporte...</p>}
 
         {error && (
           <div className="rounded-lg bg-rose-50 p-5 text-sm text-rose-700 ring-1 ring-rose-200">
@@ -147,7 +172,6 @@ export default function ReporteSemanal() {
           </div>
         )}
 
-        {/* Tarjetas por trabajador */}
         {!cargando && !error && filas.length > 0 && (
           <div className="space-y-3">
             {filas.map(({ trabajador, resumen }) => (
@@ -160,14 +184,13 @@ export default function ReporteSemanal() {
           </div>
         )}
 
-        {/* Gran total */}
         {!cargando && filas.length > 0 && (
           <div className="card border-t-2 border-marca-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="label-section">Total equipo</p>
                 <p className="mt-0.5 text-xs text-slate-500">
-                  {granHoras.toFixed(1)} h — {filas.length} trabajador{filas.length !== 1 ? "es" : ""}
+                  {granHoras.toFixed(1)} h &mdash; {filas.length} trabajador{filas.length !== 1 ? "es" : ""}
                 </p>
               </div>
               <p className="text-2xl font-bold text-navy-700">{pesos(granTotal)}</p>
@@ -188,7 +211,6 @@ function TarjetaTrabajador({
 }) {
   return (
     <div className="card">
-      {/* Nombre + total */}
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="font-semibold text-navy-700">{trabajador.nombre}</p>
@@ -201,7 +223,6 @@ function TarjetaTrabajador({
         </p>
       </div>
 
-      {/* Metricas */}
       <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-4">
         <div className="text-center">
           <p className="label-section">Horas</p>
@@ -231,7 +252,6 @@ function TarjetaTrabajador({
         </div>
       </div>
 
-      {/* Aviso de jornada abierta */}
       {resumen.horasTrabajadas === 0 && resumen.faltas === 0 && (
         <p className="mt-3 text-center text-xs text-slate-400">
           Sin horas completadas esta semana

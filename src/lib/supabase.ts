@@ -63,6 +63,8 @@ export type Marca = {
   qr_valido: boolean;
   editada_por_admin: boolean;
   nota: string | null;
+  justificada: boolean;
+  justificada_nota: string | null;
   creado_en: string;
 };
 
@@ -73,4 +75,25 @@ export type Configuracion = {
   monto_bono_mensual: number;
   dia_corte_semana: number;
   actualizado_en: string;
+};
+
+/** Excepcion de horario para un trabajador en una fecha especifica. */
+export type HorarioExcepcion = {
+  id: string;
+  trabajador_id: string;
+  fecha: string; // "YYYY-MM-DD"
+  hora_entrada_esperada: string | null; // "HH:MM:SS" o null si es_dia_libre
+  hora_salida_esperada: string | null;
+  es_dia_libre: boolean;
+  nota: string | null;
+  creado_en: string;
+};
+
+/** Falta excusada por el admin para un trabajador en una fecha especifica. */
+export type FaltaJustificada = {
+  id: string;
+  trabajador_id: string;
+  fecha: string; // "YYYY-MM-DD"
+  nota: string | null;
+  creado_en: string;
 };

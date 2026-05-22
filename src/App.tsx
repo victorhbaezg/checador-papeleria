@@ -11,6 +11,7 @@ import ConfiguracionPage from "./pages/admin/Configuracion";
 import QrImprimir from "./pages/admin/QrImprimir";
 import ReporteSemanal from "./pages/admin/ReporteSemanal";
 import ReporteMensual from "./pages/admin/ReporteMensual";
+import ExcepcionesHorario from "./pages/admin/ExcepcionesHorario";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./lib/auth";
 
@@ -133,6 +134,15 @@ export default function App() {
         element={
           <ProtectedRoute soloAdmin>
             <ReporteMensual />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/excepciones"
+        element={
+          <ProtectedRoute soloAdmin>
+            <ExcepcionesHorario />
           </ProtectedRoute>
         }
       />

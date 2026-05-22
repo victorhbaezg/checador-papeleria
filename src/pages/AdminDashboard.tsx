@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
-type IconoKey = "trabajadores" | "configuracion" | "semanal" | "mensual";
+type IconoKey = "trabajadores" | "configuracion" | "semanal" | "mensual" | "excepciones";
 
 type Tile = {
   to?: string;
@@ -35,6 +35,12 @@ const TILES: Tile[] = [
     titulo: "Reporte mensual",
     descripcion: "Bono mensual de $250",
     icono: "mensual",
+  },
+  {
+    to: "/admin/excepciones",
+    titulo: "Excepciones",
+    descripcion: "Cambios de horario o dias libres",
+    icono: "excepciones",
   },
 ];
 
@@ -92,6 +98,17 @@ function Icono({ tipo }: { tipo: IconoKey }) {
           <path d="M14.8 9a2 2 0 0 0-1.8-1h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1-1.8-1" />
           <path d="M12 6v2" />
           <path d="M12 16v2" />
+        </svg>
+      );
+    case "excepciones":
+      return (
+        <svg {...props}>
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M8 2v4" />
+          <path d="M16 2v4" />
+          <path d="M3 10h18" />
+          <path d="M9 16h6" />
+          <path d="M12 13v6" />
         </svg>
       );
   }
