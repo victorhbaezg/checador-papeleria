@@ -31,7 +31,8 @@ function nombreMes(ahora: Date = new Date()): string {
 }
 
 function fechaCorta(iso: string): string {
-  const d = new Date(iso + "T12:00:00");
+  // Acepta tanto "YYYY-MM-DD" como timestamps ISO completos
+  const d = iso.length > 10 ? new Date(iso) : new Date(iso + "T12:00:00");
   return new Intl.DateTimeFormat("es-MX", {
     timeZone: ZONA_HORARIA,
     weekday: "short",
@@ -49,7 +50,6 @@ function horaCorta(iso: string): string {
   }).format(new Date(iso));
 }
 
-/** Construye el set de fechas excluidas (no cuentan como falta) para un trabajador. */
 function buildDiasExcluidos(
   faltasJust: FaltaJustificada[],
   excepciones: HorarioExcepcion[],
@@ -155,7 +155,7 @@ export default function ReporteMensual() {
   const granTotal = filas.reduce((acc, f) => acc + f.resumen.totalConBono, 0);
   const trabajadoresConBono = filas.filter((f) => f.resumen.ganoBonoMes).length;
 
-  const filaDetalle = detalleId ? filas.find((f) => f.trabajador.id === detalleId) : null;
+  const filaDetalle = detalleId ? filas.find((f) => f.trabajador.id === detalleId) ?? null : null;
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -239,7 +239,6 @@ export default function ReporteMensual() {
         )}
       </main>
 
-      {/* Modal de detalle / justificaciones */}
       {filaDetalle && (
         <ModalDetalle
           fila={filaDetalle}
@@ -252,9 +251,6 @@ export default function ReporteMensual() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tarjeta por trabajador
-// ---------------------------------------------------------------------------
 function TarjetaTrabajador({
   trabajador,
   resumen,
@@ -336,9 +332,6 @@ function TarjetaTrabajador({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Modal de detalle y justificaciones
-// ---------------------------------------------------------------------------
 type NuevaFaltaForm = { fecha: string; nota: string };
 
 function ModalDetalle({
@@ -355,6 +348,10 @@ function ModalDetalle({
   const [guardando, setGuardando] = useState(false);
   const [nuevaFalta, setNuevaFalta] = useState<NuevaFaltaForm>({ fecha: "", nota: "" });
   const [mostrarFormFalta, setMostrarFormFalta] = useState(false);
+
+  const retardosActuales = fila.marcasMes.filter(
+    (m) => m.tipo === "entrada" && m.nota === "retardo",
+  );
 
   const toggleRetardo = async (marca: Marca) => {
     setGuardando(true);
@@ -390,15 +387,9 @@ function ModalDetalle({
     setGuardando(false);
   };
 
-  // Datos actualizados desde fila (post-recarga)
-  const retardosActuales = fila.marcasMes.filter(
-    (m) => m.tipo === "entrada" && m.nota === "retardo",
-  );
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
-        {/* Header del modal */}
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div>
             <p className="font-semibold text-navy-700">{fila.trabajador.nombre}</p>
@@ -416,7 +407,6 @@ function ModalDetalle({
         </div>
 
         <div className="space-y-5 px-5 py-5">
-          {/* Estado actual del bono */}
           <div className={`flex items-center justify-between rounded-lg px-4 py-3 ${fila.resumen.ganoBonoMes ? "bg-emerald-50" : "bg-amber-50"}`}>
             <p className={`text-sm font-semibold ${fila.resumen.ganoBonoMes ? "text-emerald-700" : "text-amber-700"}`}>
               {fila.resumen.ganoBonoMes
@@ -428,7 +418,6 @@ function ModalDetalle({
             </p>
           </div>
 
-          {/* Seccion retardos */}
           <div>
             <p className="label-section mb-2">Retardos del mes</p>
             {retardosActuales.length === 0 ? (
@@ -448,7 +437,7 @@ function ModalDetalle({
                       </p>
                       <p className="text-xs text-slate-400">
                         Entrada a las {horaCorta(m.marcado_en)}
-                        {m.justificada && " · Justificado"}
+                        {m.justificada && " - Justificado"}
                       </p>
                     </div>
                     <button
@@ -468,7 +457,6 @@ function ModalDetalle({
             )}
           </div>
 
-          {/* Seccion faltas justificadas */}
           <div>
             <div className="mb-2 flex items-center justify-between">
               <p className="label-section">Faltas justificadas</p>
@@ -544,10 +532,7 @@ function ModalDetalle({
             )}
           </div>
 
-          <button
-            onClick={onClose}
-            className="btn-secondary w-full"
-          >
+          <button onClick={onClose} className="btn-secondary w-full">
             Cerrar
           </button>
         </div>
