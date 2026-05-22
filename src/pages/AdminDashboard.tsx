@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
-type IconoKey = "trabajadores" | "configuracion" | "semanal" | "mensual" | "excepciones";
+type IconoKey = "trabajadores" | "configuracion" | "semanal" | "mensual" | "excepciones" | "historial";
 
 type Tile = {
   to?: string;
@@ -35,6 +35,12 @@ const TILES: Tile[] = [
     titulo: "Reporte mensual",
     descripcion: "Bono mensual de $250",
     icono: "mensual",
+  },
+  {
+    to: "/admin/historial",
+    titulo: "Historial",
+    descripcion: "Ver, agregar y corregir marcas",
+    icono: "historial",
   },
   {
     to: "/admin/excepciones",
@@ -98,6 +104,14 @@ function Icono({ tipo }: { tipo: IconoKey }) {
           <path d="M14.8 9a2 2 0 0 0-1.8-1h-2a2 2 0 0 0 0 4h2a2 2 0 0 1 0 4h-2a2 2 0 0 1-1.8-1" />
           <path d="M12 6v2" />
           <path d="M12 16v2" />
+        </svg>
+      );
+    case "historial":
+      return (
+        <svg {...props}>
+          <path d="M12 8v4l3 3" />
+          <path d="M3.05 11a9 9 0 1 1 .5 4" />
+          <path d="M3 16v-5h5" />
         </svg>
       );
     case "excepciones":
@@ -177,11 +191,7 @@ export default function AdminDashboard() {
 
             if (habilitado) {
               return (
-                <Link
-                  key={tile.titulo}
-                  to={tile.to!}
-                  className="card transition hover:ring-navy-300"
-                >
+                <Link key={tile.titulo} to={tile.to!} className="card transition hover:ring-navy-300">
                   {contenido}
                 </Link>
               );

@@ -12,6 +12,7 @@ import QrImprimir from "./pages/admin/QrImprimir";
 import ReporteSemanal from "./pages/admin/ReporteSemanal";
 import ReporteMensual from "./pages/admin/ReporteMensual";
 import ExcepcionesHorario from "./pages/admin/ExcepcionesHorario";
+import HistorialMarcas from "./pages/admin/HistorialMarcas";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./lib/auth";
 
@@ -30,122 +31,21 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
 
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+      <Route path="/marcar" element={<ProtectedRoute><Marcar /></ProtectedRoute>} />
+      <Route path="/mis-marcas" element={<ProtectedRoute><MisMarcas /></ProtectedRoute>} />
+      <Route path="/mi-mes" element={<ProtectedRoute><MiMes /></ProtectedRoute>} />
 
-      <Route
-        path="/marcar"
-        element={
-          <ProtectedRoute>
-            <Marcar />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/mis-marcas"
-        element={
-          <ProtectedRoute>
-            <MisMarcas />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/mi-mes"
-        element={
-          <ProtectedRoute>
-            <MiMes />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute soloAdmin>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/trabajadores"
-        element={
-          <ProtectedRoute soloAdmin>
-            <TrabajadoresList />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/trabajadores/nuevo"
-        element={
-          <ProtectedRoute soloAdmin>
-            <TrabajadorForm />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/trabajadores/:id"
-        element={
-          <ProtectedRoute soloAdmin>
-            <TrabajadorForm />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/configuracion"
-        element={
-          <ProtectedRoute soloAdmin>
-            <ConfiguracionPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/configuracion/imprimir"
-        element={
-          <ProtectedRoute soloAdmin>
-            <QrImprimir />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/reporte"
-        element={
-          <ProtectedRoute soloAdmin>
-            <ReporteSemanal />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/reporte-mensual"
-        element={
-          <ProtectedRoute soloAdmin>
-            <ReporteMensual />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/admin/excepciones"
-        element={
-          <ProtectedRoute soloAdmin>
-            <ExcepcionesHorario />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin" element={<ProtectedRoute soloAdmin><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/trabajadores" element={<ProtectedRoute soloAdmin><TrabajadoresList /></ProtectedRoute>} />
+      <Route path="/admin/trabajadores/nuevo" element={<ProtectedRoute soloAdmin><TrabajadorForm /></ProtectedRoute>} />
+      <Route path="/admin/trabajadores/:id" element={<ProtectedRoute soloAdmin><TrabajadorForm /></ProtectedRoute>} />
+      <Route path="/admin/configuracion" element={<ProtectedRoute soloAdmin><ConfiguracionPage /></ProtectedRoute>} />
+      <Route path="/admin/configuracion/imprimir" element={<ProtectedRoute soloAdmin><QrImprimir /></ProtectedRoute>} />
+      <Route path="/admin/reporte" element={<ProtectedRoute soloAdmin><ReporteSemanal /></ProtectedRoute>} />
+      <Route path="/admin/reporte-mensual" element={<ProtectedRoute soloAdmin><ReporteMensual /></ProtectedRoute>} />
+      <Route path="/admin/excepciones" element={<ProtectedRoute soloAdmin><ExcepcionesHorario /></ProtectedRoute>} />
+      <Route path="/admin/historial" element={<ProtectedRoute soloAdmin><HistorialMarcas /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
