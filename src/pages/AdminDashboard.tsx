@@ -31,9 +31,9 @@ const TILES: Tile[] = [
     icono: "semanal",
   },
   {
+    to: "/admin/reporte-mensual",
     titulo: "Reporte mensual",
     descripcion: "Bono mensual de $250",
-    proximamente: true,
     icono: "mensual",
   },
 ];

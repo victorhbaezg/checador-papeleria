@@ -149,6 +149,23 @@ export default function MisMarcas() {
           </div>
         )}
 
+        {/* Enlace al reporte mensual */}
+        {!cargando && (
+          <Link
+            to="/mi-mes"
+            className="card flex items-center justify-between transition hover:ring-navy-300"
+          >
+            <div>
+              <p className="text-sm font-semibold text-navy-700">Ver mi mes</p>
+              <p className="mt-0.5 text-xs text-slate-500">Horas, bono y estimado del mes en curso</p>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </Link>
+        )}
+
         {!cargando && dias.length > 0 && (
           <div className="space-y-3">
             {dias.map((d) => (

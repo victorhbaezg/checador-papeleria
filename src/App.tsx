@@ -3,12 +3,14 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Marcar from "./pages/Marcar";
 import MisMarcas from "./pages/MisMarcas";
+import MiMes from "./pages/MiMes";
 import AdminDashboard from "./pages/AdminDashboard";
 import TrabajadoresList from "./pages/admin/TrabajadoresList";
 import TrabajadorForm from "./pages/admin/TrabajadorForm";
 import ConfiguracionPage from "./pages/admin/Configuracion";
 import QrImprimir from "./pages/admin/QrImprimir";
 import ReporteSemanal from "./pages/admin/ReporteSemanal";
+import ReporteMensual from "./pages/admin/ReporteMensual";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./lib/auth";
 
@@ -50,6 +52,15 @@ export default function App() {
         element={
           <ProtectedRoute>
             <MisMarcas />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mi-mes"
+        element={
+          <ProtectedRoute>
+            <MiMes />
           </ProtectedRoute>
         }
       />
@@ -113,6 +124,15 @@ export default function App() {
         element={
           <ProtectedRoute soloAdmin>
             <ReporteSemanal />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/reporte-mensual"
+        element={
+          <ProtectedRoute soloAdmin>
+            <ReporteMensual />
           </ProtectedRoute>
         }
       />
