@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { supabase, type Marca } from "../lib/supabase";
 import { fechaHoyMx, formatoHoraMx, inicioSemanaMx } from "../lib/marcado";
+import { cargarTareas } from "../lib/tareas";
 
 type ResumenHoy = {
   entrada: Marca | null;
@@ -14,6 +15,7 @@ export default function Home() {
 
   const [resumenHoy, setResumenHoy] = useState<ResumenHoy>({ entrada: null, salida: null });
   const [horasSemana, setHorasSemana] = useState<number>(0);
+  const [tareas, setTareas] = useState<{ total: number; pendientes: number } | null>(null);
   const [cargandoResumen, setCargandoResumen] = useState(true);
 
   useEffect(() => {
@@ -57,6 +59,14 @@ export default function Home() {
 
     const horas = calcularHorasSemana((marcasSemanaData ?? []) as Marca[]);
     setHorasSemana(horas);
+
+    // Tareas pendientes (limpieza/orden)
+    try {
+      const r = await cargarTareas(trabajadorId);
+      setTareas({ total: r.total, pendientes: r.pendientes });
+    } catch {
+      setTareas(null);
+    }
 
     setCargandoResumen(false);
   };
@@ -113,6 +123,43 @@ export default function Home() {
             Marcar entrada / salida
           </Link>
         </div>
+
+        {/* Tareas pendientes */}
+        {tareas && tareas.total > 0 && (
+          <Link
+            to="/tareas"
+            className="card flex items-center justify-between transition hover:ring-navy-300"
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                  tareas.pendientes === 0
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "bg-amber-50 text-amber-600"
+                }`}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 12H3" />
+                  <path d="M16 6H3" />
+                  <path d="M16 18H3" />
+                  <path d="m17 12 2 2 4-4" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Mis tareas</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {tareas.pendientes === 0
+                    ? "Todas hechas. Bien hecho."
+                    : `${tareas.pendientes} pendiente${tareas.pendientes === 1 ? "" : "s"} de ${tareas.total}`}
+                </p>
+              </div>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </Link>
+        )}
 
         {/* Resumen de hoy */}
         <div className="card">

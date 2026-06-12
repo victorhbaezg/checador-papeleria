@@ -2,21 +2,29 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 import { useAuth } from "../lib/auth";
-import { supabase, type Configuracion, type Horario, type HorarioExcepcion, type Marca } from "../lib/supabase";
+import {
+  supabase,
+  type Configuracion,
+  type Horario,
+  type HorarioExcepcion,
+  type Marca,
+  type TipoMarca,
+} from "../lib/supabase";
 import {
   diaSemanaMx,
   esRetardo,
   fechaHoyMx,
   formatoHoraMx,
-  siguienteTipo,
+  siguienteAccion,
   ZONA_HORARIA,
 } from "../lib/marcado";
+import { cargarTareas, type ResumenTareas } from "../lib/tareas";
 
 type Estado =
   | { kind: "preparando" }
   | { kind: "esperando_scan" }
   | { kind: "procesando" }
-  | { kind: "exito"; tipo: "entrada" | "salida"; hora: string }
+  | { kind: "exito"; tipo: TipoMarca; hora: string; tareas: ResumenTareas | null }
   | { kind: "error"; mensaje: string };
 
 const QR_ELEMENT_ID = "qr-reader";
@@ -120,29 +128,37 @@ export default function Marcar() {
         .order("marcado_en", { ascending: true });
       if (errMarcas) throw new Error(errMarcas.message);
 
-      const tipo = siguienteTipo((marcasHoyData ?? []) as Marca[]);
-
-      // 3) Si es entrada, verificar retardo considerando excepciones de horario
+      const marcasHoy = (marcasHoyData ?? []) as Marca[];
       const ahora = new Date();
+      const dia = diaSemanaMx(ahora);
+
+      // 3) Horario regular del dia (de aqui sale la pausa programada)
+      const { data: horarioData } = await supabase
+        .from("horarios")
+        .select("*")
+        .eq("trabajador_id", trabajador.id)
+        .eq("dia_semana", dia)
+        .maybeSingle();
+      const horarioRegular = (horarioData as Horario | null) ?? null;
+
+      // 4) Decidir el tipo de marca considerando la pausa programada
+      const tipo = siguienteAccion(marcasHoy, horarioRegular, ahora);
+
+      // 5) Solo la entrada real revisa retardo (considerando excepciones).
+      //    El regreso de pausa nunca cuenta como retardo.
       let fueRetardo = false;
       if (tipo === "entrada") {
-        const dia = diaSemanaMx(ahora);
-
-        // Consultar si existe excepcion de horario para hoy
         const { data: excepcionData } = await supabase
           .from("horario_excepciones")
           .select("*")
           .eq("trabajador_id", trabajador.id)
           .eq("fecha", hoyMx)
           .maybeSingle();
-
         const excepcion = excepcionData as HorarioExcepcion | null;
 
         if (excepcion && excepcion.es_dia_libre) {
-          // Dia libre por excepcion: no hay retardo posible
           fueRetardo = false;
         } else if (excepcion && excepcion.hora_entrada_esperada) {
-          // Horario especial: construimos un Horario virtual con las horas de la excepcion
           const horarioVirtual: Horario = {
             id: "",
             trabajador_id: trabajador.id,
@@ -150,25 +166,20 @@ export default function Marcar() {
             hora_entrada_esperada: excepcion.hora_entrada_esperada,
             hora_salida_esperada: excepcion.hora_salida_esperada ?? "00:00:00",
             descansa: false,
+            hora_pausa_inicio: null,
+            hora_pausa_fin: null,
           };
           fueRetardo = esRetardo(ahora, horarioVirtual, config.tolerancia_retardo_minutos);
         } else {
-          // Sin excepcion: usar el horario regular del dia
-          const { data: horarioData } = await supabase
-            .from("horarios")
-            .select("*")
-            .eq("trabajador_id", trabajador.id)
-            .eq("dia_semana", dia)
-            .maybeSingle();
           fueRetardo = esRetardo(
             ahora,
-            (horarioData as Horario | null) ?? null,
+            horarioRegular,
             config.tolerancia_retardo_minutos,
           );
         }
       }
 
-      // 4) Insertar la marca
+      // 6) Insertar la marca
       const nota = tipo === "entrada" && fueRetardo ? "retardo" : null;
       const { error: errInsert } = await supabase.from("marcas").insert({
         trabajador_id: trabajador.id,
@@ -180,9 +191,19 @@ export default function Marcar() {
       });
       if (errInsert) throw new Error(errInsert.message);
 
-      // 5) Apagar camara y mostrar exito
+      // 7) Si es la salida del dia, traer el resumen de tareas para mostrarlo
+      let tareas: ResumenTareas | null = null;
+      if (tipo === "salida") {
+        try {
+          tareas = await cargarTareas(trabajador.id, ahora);
+        } catch {
+          tareas = null;
+        }
+      }
+
+      // 8) Apagar camara y mostrar exito
       await detenerScanner();
-      setEstado({ kind: "exito", tipo, hora: ahora.toISOString() });
+      setEstado({ kind: "exito", tipo, hora: ahora.toISOString(), tareas });
     } catch (err) {
       const mensaje = err instanceof Error ? err.message : String(err);
       setEstado({ kind: "error", mensaje });
@@ -216,6 +237,7 @@ export default function Marcar() {
           <PantallaExito
             tipo={estado.tipo}
             hora={estado.hora}
+            tareas={estado.tareas}
             onIrAHome={() => navigate("/")}
           />
         ) : (
@@ -228,7 +250,7 @@ export default function Marcar() {
               <p className="mt-1 text-xs text-slate-500">
                 {estado.kind === "preparando" && "Preparando la camara..."}
                 {estado.kind === "esperando_scan" &&
-                  "La app detecta automaticamente entrada o salida segun la hora del dia."}
+                  "La app detecta automaticamente entrada, salida o pausa segun tu horario."}
                 {estado.kind === "procesando" && "Procesando marca..."}
                 {estado.kind === "error" && "Hubo un problema. Lee el aviso abajo."}
               </p>
@@ -262,13 +284,25 @@ export default function Marcar() {
   );
 }
 
+const ETIQUETAS: Record<TipoMarca, { titulo: string; nota: string }> = {
+  entrada: { titulo: "Entrada registrada", nota: "Que tengas buen turno." },
+  salida: { titulo: "Salida registrada", nota: "Gracias por tu trabajo de hoy." },
+  pausa_inicio: {
+    titulo: "Pausa iniciada",
+    nota: "Vuelve a escanear el QR cuando regreses.",
+  },
+  pausa_fin: { titulo: "Regreso registrado", nota: "Bienvenida de vuelta." },
+};
+
 function PantallaExito({
   tipo,
   hora,
+  tareas,
   onIrAHome,
 }: {
-  tipo: "entrada" | "salida";
+  tipo: TipoMarca;
   hora: string;
+  tareas: ResumenTareas | null;
   onIrAHome: () => void;
 }) {
   const fechaLarga = new Intl.DateTimeFormat("es-MX", {
@@ -278,20 +312,81 @@ function PantallaExito({
     month: "long",
   }).format(new Date(hora));
 
-  return (
-    <div className="card text-center">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-emerald-200">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 6 9 17l-5-5" />
-        </svg>
-      </div>
-      <p className="label-section">
-        {tipo === "entrada" ? "Entrada registrada" : "Salida registrada"}
-      </p>
-      <p className="mt-1 text-3xl font-bold text-navy-700">{formatoHoraMx(hora)}</p>
-      <p className="mt-1 text-sm capitalize text-slate-500">{fechaLarga}</p>
+  const etiqueta = ETIQUETAS[tipo];
 
-      <button onClick={onIrAHome} className="btn-primary mt-6 w-full">
+  return (
+    <div className="space-y-4">
+      <div className="card text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-emerald-200">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        </div>
+        <p className="label-section">{etiqueta.titulo}</p>
+        <p className="mt-1 text-3xl font-bold text-navy-700">{formatoHoraMx(hora)}</p>
+        <p className="mt-1 text-sm capitalize text-slate-500">{fechaLarga}</p>
+        <p className="mt-2 text-xs text-slate-400">{etiqueta.nota}</p>
+      </div>
+
+      {/* Resumen de tareas al cerrar el turno */}
+      {tipo === "salida" && tareas && tareas.total > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <p className="label-section">Tareas de hoy</p>
+            <span
+              className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                tareas.pendientes === 0
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-amber-100 text-amber-700"
+              }`}
+            >
+              {tareas.hechas}/{tareas.total}
+            </span>
+          </div>
+
+          {tareas.pendientes === 0 ? (
+            <p className="mt-2 text-sm font-medium text-emerald-700">
+              Terminaste todas tus tareas. Bien hecho.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-slate-600">
+              Te quedaron {tareas.pendientes} sin marcar:
+            </p>
+          )}
+
+          <ul className="mt-3 space-y-1.5">
+            {tareas.items.map((t) => (
+              <li key={t.id} className="flex items-center gap-2 text-sm">
+                {t.hecha ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                    <circle cx="12" cy="12" r="9" />
+                  </svg>
+                )}
+                <span className={t.hecha ? "text-slate-400 line-through" : "text-slate-800"}>
+                  {t.titulo}
+                </span>
+                {t.frecuencia === "semanal" && (
+                  <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Semanal
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {tareas.pendientes > 0 && (
+            <Link to="/tareas" className="btn-secondary mt-4 w-full py-2 text-sm">
+              Ver y marcar tareas
+            </Link>
+          )}
+        </div>
+      )}
+
+      <button onClick={onIrAHome} className="btn-primary w-full">
         Listo
       </button>
     </div>

@@ -10,6 +10,9 @@ type HorarioForm = {
   hora_entrada_esperada: string;
   hora_salida_esperada: string;
   descansa: boolean;
+  tiene_pausa: boolean;
+  hora_pausa_inicio: string;
+  hora_pausa_fin: string;
 };
 
 const horariosDefault: HorarioForm[] = DIAS_SEMANA.map((d) => ({
@@ -17,6 +20,9 @@ const horariosDefault: HorarioForm[] = DIAS_SEMANA.map((d) => ({
   hora_entrada_esperada: "09:00",
   hora_salida_esperada: "18:00",
   descansa: d.numero === 0 || d.numero === 6,
+  tiene_pausa: false,
+  hora_pausa_inicio: "16:30",
+  hora_pausa_fin: "17:00",
 }));
 
 export default function TrabajadorForm() {
@@ -76,12 +82,18 @@ export default function TrabajadorForm() {
                 hora_entrada_esperada: hhmm(h.hora_entrada_esperada),
                 hora_salida_esperada: hhmm(h.hora_salida_esperada),
                 descansa: h.descansa,
+                tiene_pausa: Boolean(h.hora_pausa_inicio && h.hora_pausa_fin),
+                hora_pausa_inicio: h.hora_pausa_inicio ? hhmm(h.hora_pausa_inicio) : "16:30",
+                hora_pausa_fin: h.hora_pausa_fin ? hhmm(h.hora_pausa_fin) : "17:00",
               }
             : {
                 dia_semana: d.numero,
                 hora_entrada_esperada: "09:00",
                 hora_salida_esperada: "18:00",
                 descansa: d.numero === 0 || d.numero === 6,
+                tiene_pausa: false,
+                hora_pausa_inicio: "16:30",
+                hora_pausa_fin: "17:00",
               };
         }),
       );
@@ -180,6 +192,10 @@ export default function TrabajadorForm() {
           hora_entrada_esperada: `${h.hora_entrada_esperada}:00`,
           hora_salida_esperada: `${h.hora_salida_esperada}:00`,
           descansa: h.descansa,
+          hora_pausa_inicio:
+            h.tiene_pausa && !h.descansa ? `${h.hora_pausa_inicio}:00` : null,
+          hora_pausa_fin:
+            h.tiene_pausa && !h.descansa ? `${h.hora_pausa_fin}:00` : null,
         }));
         const { error: errH } = await supabase
           .from("horarios")
@@ -331,8 +347,9 @@ export default function TrabajadorForm() {
                 return (
                   <div
                     key={h.dia_semana}
-                    className="grid grid-cols-12 items-center gap-2 rounded-lg bg-slate-50 px-3 py-2"
+                    className="space-y-2 rounded-lg bg-slate-50 px-3 py-2"
                   >
+                  <div className="grid grid-cols-12 items-center gap-2">
                     <span className="col-span-3 text-sm font-medium text-slate-700">
                       {dia.largo}
                     </span>
@@ -374,6 +391,53 @@ export default function TrabajadorForm() {
                       disabled={h.descansa}
                       className="col-span-3 rounded-md border border-slate-300 px-2 py-1 text-sm disabled:bg-slate-100 disabled:text-slate-400"
                     />
+                  </div>
+
+                  {/* Pausa programada (opcional) */}
+                  {!h.descansa && (
+                    <div className="border-t border-slate-200 pt-2">
+                      <label className="flex items-center gap-2 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={h.tiene_pausa}
+                          onChange={(e) =>
+                            actualizarHorario(h.dia_semana, {
+                              tiene_pausa: e.target.checked,
+                            })
+                          }
+                          className="h-4 w-4"
+                        />
+                        Tiene pausa a media jornada (sale y regresa)
+                      </label>
+
+                      {h.tiene_pausa && (
+                        <div className="mt-2 flex items-center gap-2 pl-6">
+                          <span className="text-xs text-slate-500">Sale</span>
+                          <input
+                            type="time"
+                            value={h.hora_pausa_inicio}
+                            onChange={(e) =>
+                              actualizarHorario(h.dia_semana, {
+                                hora_pausa_inicio: e.target.value,
+                              })
+                            }
+                            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                          />
+                          <span className="text-xs text-slate-500">Regresa</span>
+                          <input
+                            type="time"
+                            value={h.hora_pausa_fin}
+                            onChange={(e) =>
+                              actualizarHorario(h.dia_semana, {
+                                hora_pausa_fin: e.target.value,
+                              })
+                            }
+                            className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                   </div>
                 );
               })}

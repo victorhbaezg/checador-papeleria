@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
-type IconoKey = "trabajadores" | "configuracion" | "semanal" | "mensual" | "excepciones" | "historial";
+type IconoKey = "trabajadores" | "configuracion" | "semanal" | "mensual" | "excepciones" | "historial" | "tareas";
 
 type Tile = {
   to?: string;
@@ -41,6 +41,12 @@ const TILES: Tile[] = [
     titulo: "Historial",
     descripcion: "Ver, agregar y corregir marcas",
     icono: "historial",
+  },
+  {
+    to: "/admin/tareas",
+    titulo: "Tareas",
+    descripcion: "Lista de limpieza y orden por trabajador",
+    icono: "tareas",
   },
   {
     to: "/admin/excepciones",
@@ -123,6 +129,15 @@ function Icono({ tipo }: { tipo: IconoKey }) {
           <path d="M3 10h18" />
           <path d="M9 16h6" />
           <path d="M12 13v6" />
+        </svg>
+      );
+    case "tareas":
+      return (
+        <svg {...props}>
+          <path d="M11 12H3" />
+          <path d="M16 6H3" />
+          <path d="M16 18H3" />
+          <path d="m17 12 2 2 4-4" />
         </svg>
       );
   }

@@ -5,7 +5,7 @@
  * fáciles de razonar y de probar a mano si hace falta.
  */
 
-import type { Horario, Marca } from "./supabase";
+import type { Horario, Marca, TipoMarca } from "./supabase";
 
 export const ZONA_HORARIA = "America/Mexico_City";
 
@@ -62,6 +62,99 @@ export function siguienteTipo(marcasDeHoy: Marca[]): "entrada" | "salida" {
   const haySalida = marcasDeHoy.some((m) => m.tipo === "salida");
   if (hayEntrada && !haySalida) return "salida";
   return "entrada";
+}
+
+/**
+ * Minutos transcurridos desde medianoche segun el reloj de pared en CDMX.
+ * Ej: las 16:30 en CDMX devuelve 990 sin importar la zona del dispositivo.
+ */
+export function minutosPared(d: Date): number {
+  const horaPared = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ZONA_HORARIA,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+  const [h, m] = horaPared.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Convierte "16:30:00" (o "16:30") a minutos desde medianoche. */
+function horaTextoAMin(hora: string): number {
+  const [h, m] = hora.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** ¿El horario de este dia tiene una pausa programada (entrada y salida)? */
+export function tienePausaProgramada(h: Horario | null | undefined): boolean {
+  return Boolean(h && !h.descansa && h.hora_pausa_inicio && h.hora_pausa_fin);
+}
+
+// Margen (min) antes de la hora de salida del dia para seguir interpretando
+// un escaneo de salida como "inicio de pausa" en vez de "salida final".
+const MARGEN_PAUSA_MIN = 45;
+
+/**
+ * Decide cual es la siguiente marca a registrar considerando la pausa
+ * programada del trabajador.
+ *
+ * Estados posibles a partir de las marcas del dia:
+ *  - sin entrada            -> "entrada"
+ *  - pausa abierta          -> "pausa_fin" (regreso)
+ *  - trabajando, pausa
+ *    programada y no tomada
+ *    y aun lejos del cierre  -> "pausa_inicio"
+ *  - trabajando             -> "salida"
+ *  - dia ya cerrado         -> "entrada" (nueva jornada, caso raro)
+ *
+ * `horarioDelDia` es el renglon regular de `horarios` (de el sale la pausa).
+ */
+export function siguienteAccion(
+  marcasDeHoy: Marca[],
+  horarioDelDia: Horario | null | undefined,
+  ahora: Date = new Date(),
+): TipoMarca {
+  const hayEntrada = marcasDeHoy.some((m) => m.tipo === "entrada");
+  if (!hayEntrada) return "entrada";
+
+  const hayPausaInicio = marcasDeHoy.some((m) => m.tipo === "pausa_inicio");
+  const hayPausaFin = marcasDeHoy.some((m) => m.tipo === "pausa_fin");
+  if (hayPausaInicio && !hayPausaFin) return "pausa_fin";
+
+  const haySalida = marcasDeHoy.some((m) => m.tipo === "salida");
+  if (haySalida) return "entrada"; // dia ya cerrado; arranca una nueva jornada
+
+  // Trabajando, sin salida y sin pausa abierta.
+  // Si tiene pausa programada y aun no la toma, y todavia falta bastante
+  // para su hora de salida, interpretamos este escaneo como inicio de pausa.
+  if (tienePausaProgramada(horarioDelDia) && !hayPausaInicio) {
+    const minSalida = horaTextoAMin(horarioDelDia!.hora_salida_esperada);
+    if (minutosPared(ahora) <= minSalida - MARGEN_PAUSA_MIN) {
+      return "pausa_inicio";
+    }
+  }
+  return "salida";
+}
+
+/**
+ * Clave del periodo de una tarea para guardar/consultar si esta hecha.
+ * - diaria  -> la fecha de hoy en CDMX ("YYYY-MM-DD")
+ * - semanal -> el lunes de la semana actual en CDMX ("YYYY-MM-DD")
+ */
+export function clavePeriodo(
+  frecuencia: "diaria" | "semanal",
+  ahora: Date = new Date(),
+): string {
+  if (frecuencia === "semanal") {
+    const lunesUtc = inicioSemanaMx(ahora);
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: ZONA_HORARIA,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(lunesUtc);
+  }
+  return fechaHoyMx(ahora);
 }
 
 /**

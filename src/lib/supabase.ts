@@ -50,12 +50,17 @@ export type Horario = {
   hora_entrada_esperada: string; // "08:00:00"
   hora_salida_esperada: string;
   descansa: boolean;
+  hora_pausa_inicio: string | null; // "16:30:00" o null si no hay pausa ese dia
+  hora_pausa_fin: string | null; // "17:00:00" o null
 };
+
+/** Los cuatro tipos de marca posibles. */
+export type TipoMarca = "entrada" | "salida" | "pausa_inicio" | "pausa_fin";
 
 export type Marca = {
   id: string;
   trabajador_id: string;
-  tipo: "entrada" | "salida";
+  tipo: TipoMarca;
   marcado_en: string;
   lat: number | null;
   lng: number | null;
@@ -96,4 +101,27 @@ export type FaltaJustificada = {
   fecha: string; // "YYYY-MM-DD"
   nota: string | null;
   creado_en: string;
+};
+
+/** Frecuencia con la que se reinicia una tarea. */
+export type FrecuenciaTarea = "diaria" | "semanal";
+
+/** Tarea de limpieza/orden asignada a un trabajador. */
+export type Tarea = {
+  id: string;
+  trabajador_id: string;
+  titulo: string;
+  frecuencia: FrecuenciaTarea;
+  activo: boolean;
+  orden: number;
+  creado_en: string;
+};
+
+/** Registro de una tarea marcada como hecha en un periodo (dia o semana). */
+export type TareaCompletada = {
+  id: string;
+  tarea_id: string;
+  trabajador_id: string;
+  periodo: string; // "YYYY-MM-DD" del dia (diaria) o del lunes (semanal)
+  completada_en: string;
 };

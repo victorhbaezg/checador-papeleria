@@ -103,9 +103,11 @@ export function calcularResumenSemana(
     if (!porDia.has(fecha)) porDia.set(fecha, { entradas: [], salidas: [] });
     if (m.tipo === "entrada") {
       porDia.get(fecha)!.entradas.push(m);
-    } else {
+    } else if (m.tipo === "salida") {
       porDia.get(fecha)!.salidas.push(m);
     }
+    // Las marcas de pausa (pausa_inicio/pausa_fin) se ignoran aqui: la pausa
+    // se paga normal, asi que las horas siguen siendo entrada -> ultima salida.
   }
 
   let horasTrabajadas = 0;
@@ -239,7 +241,8 @@ export function calcularResumenMes(
     const fecha = isoAFechaMx(m.marcado_en);
     if (!porDia.has(fecha)) porDia.set(fecha, { entradas: [], salidas: [] });
     if (m.tipo === "entrada") porDia.get(fecha)!.entradas.push(m);
-    else porDia.get(fecha)!.salidas.push(m);
+    else if (m.tipo === "salida") porDia.get(fecha)!.salidas.push(m);
+    // Las marcas de pausa no cuentan para el emparejado de horas.
   }
 
   let horasTrabajadas = 0;
