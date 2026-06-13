@@ -4,8 +4,19 @@ import {
   supabase,
   type Trabajador,
   type Tarea,
-  type FrecuenciaTarea,
 } from "../../lib/supabase";
+import { DIAS_SEMANA } from "../../lib/dias";
+
+// Modo de repeticion al crear la tarea.
+type ModoTarea = "diaria" | "dias" | "semanal";
+
+/** Texto corto con los dias en que aplica una tarea (ej. "Lun, Mie, Vie"). */
+function textoDias(dias: number[] | null): string {
+  if (!dias || dias.length === 0) return "";
+  return DIAS_SEMANA.filter((d) => dias.includes(d.numero))
+    .map((d) => d.corto)
+    .join(", ");
+}
 
 export default function AdminTareas() {
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
@@ -15,7 +26,8 @@ export default function AdminTareas() {
   const [guardando, setGuardando] = useState(false);
 
   const [nuevoTitulo, setNuevoTitulo] = useState("");
-  const [nuevaFrecuencia, setNuevaFrecuencia] = useState<FrecuenciaTarea>("diaria");
+  const [nuevoModo, setNuevoModo] = useState<ModoTarea>("diaria");
+  const [nuevosDias, setNuevosDias] = useState<number[]>([]);
 
   useEffect(() => {
     void cargarTrabajadores();
@@ -50,17 +62,26 @@ export default function AdminTareas() {
     setCargando(false);
   };
 
+  const toggleDia = (numero: number) => {
+    setNuevosDias((prev) =>
+      prev.includes(numero) ? prev.filter((d) => d !== numero) : [...prev, numero],
+    );
+  };
+
   const agregar = async () => {
     if (!seleccionado || !nuevoTitulo.trim()) return;
+    if (nuevoModo === "dias" && nuevosDias.length === 0) return;
     setGuardando(true);
     await supabase.from("tareas").insert({
       trabajador_id: seleccionado,
       titulo: nuevoTitulo.trim(),
-      frecuencia: nuevaFrecuencia,
+      frecuencia: nuevoModo === "semanal" ? "semanal" : "diaria",
+      dias_semana: nuevoModo === "dias" ? [...nuevosDias].sort() : null,
       orden: tareas.length,
     });
     setNuevoTitulo("");
-    setNuevaFrecuencia("diaria");
+    setNuevoModo("diaria");
+    setNuevosDias([]);
     await cargarTareas();
     setGuardando(false);
   };
@@ -79,7 +100,12 @@ export default function AdminTareas() {
     setGuardando(false);
   };
 
-  const diarias = tareas.filter((t) => t.frecuencia === "diaria");
+  const todosDias = tareas.filter(
+    (t) => t.frecuencia === "diaria" && (!t.dias_semana || t.dias_semana.length === 0),
+  );
+  const diasEspecificos = tareas.filter(
+    (t) => t.frecuencia === "diaria" && t.dias_semana && t.dias_semana.length > 0,
+  );
   const semanales = tareas.filter((t) => t.frecuencia === "semanal");
 
   return (
@@ -125,23 +151,34 @@ export default function AdminTareas() {
             onChange={(e) => setNuevoTitulo(e.target.value)}
             placeholder="Ej. Limpiar mostrador"
           />
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={() => setNuevaFrecuencia("diaria")}
-              className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition ${
-                nuevaFrecuencia === "diaria"
+              onClick={() => setNuevoModo("diaria")}
+              className={`rounded-lg border py-2 text-xs font-semibold transition ${
+                nuevoModo === "diaria"
                   ? "border-navy-400 bg-navy-50 text-navy-700"
                   : "border-slate-200 bg-white text-slate-500"
               }`}
             >
-              Cada dia
+              Todos los dias
             </button>
             <button
               type="button"
-              onClick={() => setNuevaFrecuencia("semanal")}
-              className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition ${
-                nuevaFrecuencia === "semanal"
+              onClick={() => setNuevoModo("dias")}
+              className={`rounded-lg border py-2 text-xs font-semibold transition ${
+                nuevoModo === "dias"
+                  ? "border-navy-400 bg-navy-50 text-navy-700"
+                  : "border-slate-200 bg-white text-slate-500"
+              }`}
+            >
+              Dias especificos
+            </button>
+            <button
+              type="button"
+              onClick={() => setNuevoModo("semanal")}
+              className={`rounded-lg border py-2 text-xs font-semibold transition ${
+                nuevoModo === "semanal"
                   ? "border-navy-400 bg-navy-50 text-navy-700"
                   : "border-slate-200 bg-white text-slate-500"
               }`}
@@ -149,9 +186,42 @@ export default function AdminTareas() {
               Cada semana
             </button>
           </div>
+
+          {/* Selector de dias para "Dias especificos" */}
+          {nuevoModo === "dias" && (
+            <div>
+              <p className="mb-1.5 text-xs text-slate-500">
+                Elige en que dias aparece esta tarea:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {DIAS_SEMANA.map((d) => {
+                  const activo = nuevosDias.includes(d.numero);
+                  return (
+                    <button
+                      key={d.numero}
+                      type="button"
+                      onClick={() => toggleDia(d.numero)}
+                      className={`h-9 w-11 rounded-lg border text-xs font-semibold transition ${
+                        activo
+                          ? "border-marca-500 bg-marca-500 text-white"
+                          : "border-slate-200 bg-white text-slate-500"
+                      }`}
+                    >
+                      {d.corto}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <button
             onClick={() => void agregar()}
-            disabled={guardando || !nuevoTitulo.trim()}
+            disabled={
+              guardando ||
+              !nuevoTitulo.trim() ||
+              (nuevoModo === "dias" && nuevosDias.length === 0)
+            }
             className="btn-primary w-full py-2.5 text-sm"
           >
             Agregar tarea
@@ -166,10 +236,19 @@ export default function AdminTareas() {
           </div>
         )}
 
-        {diarias.length > 0 && (
+        {todosDias.length > 0 && (
           <ListaTareas
-            titulo="Cada dia"
-            tareas={diarias}
+            titulo="Todos los dias"
+            tareas={todosDias}
+            guardando={guardando}
+            onAlternarActivo={alternarActivo}
+            onEliminar={eliminar}
+          />
+        )}
+        {diasEspecificos.length > 0 && (
+          <ListaTareas
+            titulo="Dias especificos"
+            tareas={diasEspecificos}
             guardando={guardando}
             onAlternarActivo={alternarActivo}
             onEliminar={eliminar}
@@ -214,7 +293,14 @@ function ListaTareas({
             t.activo ? "" : "opacity-50"
           }`}
         >
-          <span className="flex-1 text-sm font-medium text-slate-800">{t.titulo}</span>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-800">{t.titulo}</p>
+            {t.dias_semana && t.dias_semana.length > 0 && (
+              <p className="mt-0.5 text-[11px] font-medium text-marca-600">
+                {textoDias(t.dias_semana)}
+              </p>
+            )}
+          </div>
           <button
             onClick={() => onAlternarActivo(t)}
             disabled={guardando}

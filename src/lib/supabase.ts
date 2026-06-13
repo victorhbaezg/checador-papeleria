@@ -112,6 +112,9 @@ export type Tarea = {
   trabajador_id: string;
   titulo: string;
   frecuencia: FrecuenciaTarea;
+  // Solo para frecuencia "diaria": dias de la semana en que aplica (0=dom..6=sab).
+  // null o vacio = todos los dias.
+  dias_semana: number[] | null;
   activo: boolean;
   orden: number;
   creado_en: string;

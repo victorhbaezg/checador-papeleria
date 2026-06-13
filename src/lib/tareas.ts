@@ -11,7 +11,7 @@ import {
   type Tarea,
   type TareaCompletada,
 } from "./supabase";
-import { clavePeriodo } from "./marcado";
+import { clavePeriodo, diaSemanaMx } from "./marcado";
 
 /** Una tarea con su estado (hecha o no) para el periodo actual. */
 export type TareaConEstado = Tarea & { hecha: boolean; periodo: string };
@@ -53,7 +53,16 @@ export async function cargarTareas(
   const comp = (compData ?? []) as TareaCompletada[];
   const hechasSet = new Set(comp.map((c) => `${c.tarea_id}|${c.periodo}`));
 
-  const items: TareaConEstado[] = tareas.map((t) => {
+  // Las tareas "diaria" con dias_semana definidos solo aplican hoy si hoy
+  // esta en su lista. Las "semanal" y las sin dias aplican siempre.
+  const hoyDia = diaSemanaMx(ahora);
+  const aplicaHoy = (t: Tarea): boolean => {
+    if (t.frecuencia !== "diaria") return true;
+    if (!t.dias_semana || t.dias_semana.length === 0) return true;
+    return t.dias_semana.includes(hoyDia);
+  };
+
+  const items: TareaConEstado[] = tareas.filter(aplicaHoy).map((t) => {
     const periodo = t.frecuencia === "semanal" ? claveSemanal : claveDiaria;
     return { ...t, periodo, hecha: hechasSet.has(`${t.id}|${periodo}`) };
   });
