@@ -50,7 +50,7 @@ export default function MiMes() {
       { data: faltasJustData },
       { data: excepcionesData },
     ] = await Promise.all([
-      supabase.from("configuracion").select("monto_bono_mensual").single(),
+      supabase.from("configuracion").select("monto_bono_mensual, umbral_sancion_minutos").single(),
       supabase
         .from("marcas")
         .select("*")
@@ -77,8 +77,11 @@ export default function MiMes() {
       return;
     }
 
-    const bonoReal =
-      (config as { monto_bono_mensual: number } | null)?.monto_bono_mensual ?? 250;
+    const cfg = config as
+      | { monto_bono_mensual: number; umbral_sancion_minutos: number }
+      | null;
+    const bonoReal = cfg?.monto_bono_mensual ?? 250;
+    const umbral = cfg?.umbral_sancion_minutos ?? 60;
     setMontoBono(bonoReal);
 
     const marcas = (marcasData ?? []) as Marca[];
@@ -86,7 +89,6 @@ export default function MiMes() {
     const faltasJust = (faltasJustData ?? []) as FaltaJustificada[];
     const excepciones = (excepcionesData ?? []) as HorarioExcepcion[];
 
-    // Construir set de dias excluidos (no cuentan como falta)
     const diasExcluidos = new Set<string>();
     for (const f of faltasJust) diasExcluidos.add(f.fecha);
     for (const e of excepciones) {
@@ -94,7 +96,15 @@ export default function MiMes() {
     }
 
     setResumen(
-      calcularResumenMes(marcas, horarios, trabajador?.tarifa_hora ?? 0, bonoReal, diasExcluidos),
+      calcularResumenMes(
+        marcas,
+        horarios,
+        trabajador?.tarifa_hora ?? 0,
+        bonoReal,
+        diasExcluidos,
+        new Date(),
+        umbral,
+      ),
     );
     setCargando(false);
   };
@@ -204,6 +214,16 @@ export default function MiMes() {
                     {pesos(resumen.totalConBono)}
                   </p>
                 </div>
+                {resumen.montoDescuento > 0 && (
+                  <div className="mt-3 flex items-center justify-between border-t border-rose-100 pt-2">
+                    <p className="text-xs font-medium text-rose-600">
+                      Descuento por retardos ({resumen.minutosTarde} min)
+                    </p>
+                    <p className="text-sm font-bold text-rose-600 tabular-nums">
+                      -{pesos(resumen.montoDescuento)}
+                    </p>
+                  </div>
+                )}
                 <p className="mt-2 text-[11px] text-slate-400">
                   Solo incluye dias con entrada y salida registradas.
                 </p>

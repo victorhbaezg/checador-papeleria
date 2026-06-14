@@ -1,8 +1,8 @@
 /**
  * Helpers para el flujo de marcado de entrada/salida.
  *
- * Las funciones aquí son puras (no tocan Supabase) para que sean
- * fáciles de razonar y de probar a mano si hace falta.
+ * Las funciones aqui son puras (no tocan Supabase) para que sean
+ * faciles de razonar y de probar a mano si hace falta.
  */
 
 import type { Horario, Marca, TipoMarca } from "./supabase";
@@ -10,12 +10,11 @@ import type { Horario, Marca, TipoMarca } from "./supabase";
 export const ZONA_HORARIA = "America/Mexico_City";
 
 /**
- * Devuelve la fecha (YYYY-MM-DD) de "ahora" en la zona horaria de México,
+ * Devuelve la fecha (YYYY-MM-DD) de "ahora" en la zona horaria de Mexico,
  * sin depender de la zona del dispositivo (por si alguien tiene el celular
  * en otra zona).
  */
 export function fechaHoyMx(ahora: Date = new Date()): string {
-  // "es-MX" + timeZone fija la fecha en CDMX. Sale como "16/05/2026" → invertimos.
   const partes = new Intl.DateTimeFormat("es-MX", {
     timeZone: ZONA_HORARIA,
     year: "numeric",
@@ -29,8 +28,8 @@ export function fechaHoyMx(ahora: Date = new Date()): string {
 }
 
 /**
- * Día de la semana en zona México: 0=domingo, 6=sábado.
- * Coincide con la convención de la tabla `horarios.dia_semana`.
+ * Dia de la semana en zona Mexico: 0=domingo, 6=sabado.
+ * Coincide con la convencion de la tabla `horarios.dia_semana`.
  */
 export function diaSemanaMx(ahora: Date = new Date()): number {
   const fmt = new Intl.DateTimeFormat("en-US", {
@@ -55,7 +54,7 @@ export function diaSemanaMx(ahora: Date = new Date()): number {
  * Regla: si hoy ya hay una entrada SIN salida, la siguiente es salida.
  * Si no, es entrada.
  *
- * Espera recibir solo las marcas del día de hoy del trabajador.
+ * Espera recibir solo las marcas del dia de hoy del trabajador.
  */
 export function siguienteTipo(marcasDeHoy: Marca[]): "entrada" | "salida" {
   const hayEntrada = marcasDeHoy.some((m) => m.tipo === "entrada");
@@ -85,7 +84,7 @@ function horaTextoAMin(hora: string): number {
   return h * 60 + m;
 }
 
-/** ¿El horario de este dia tiene una pausa programada (entrada y salida)? */
+/** Tiene este horario una pausa programada (entrada y salida de pausa)? */
 export function tienePausaProgramada(h: Horario | null | undefined): boolean {
   return Boolean(h && !h.descansa && h.hora_pausa_inicio && h.hora_pausa_fin);
 }
@@ -158,14 +157,28 @@ export function clavePeriodo(
 }
 
 /**
+ * Minutos de retraso de una entrada respecto a la hora programada.
+ * Se cuenta desde la hora de entrada exacta (NO desde la tolerancia).
+ * Devuelve 0 si no hay horario, si descansa, o si llego a tiempo/antes.
+ */
+export function minutosTarde(
+  marcadoEn: Date,
+  horarioDelDia: Horario | null | undefined,
+): number {
+  if (!horarioDelDia || horarioDelDia.descansa) return 0;
+  const minutosMarcado = minutosPared(marcadoEn);
+  // hora_entrada_esperada viene como "08:00:00"
+  const [hE, mE] = horarioDelDia.hora_entrada_esperada.split(":").map(Number);
+  const minutosEsperados = hE * 60 + mE;
+  return Math.max(0, minutosMarcado - minutosEsperados);
+}
+
+/**
  * Determina si una entrada cuenta como retardo.
  *
- * - `horarioDelDia` es el renglón de `horarios` para el trabajador y el
- *   día correspondiente. Si descansa o no existe, no hay retardo posible.
+ * - `horarioDelDia` es el renglon de `horarios` para el trabajador y el
+ *   dia correspondiente. Si descansa o no existe, no hay retardo posible.
  * - `toleranciaMin` viene de `configuracion.tolerancia_retardo_minutos`.
- *
- * Compara la hora del reloj de pared en CDMX (no UTC) contra la hora
- * esperada de entrada.
  */
 export function esRetardo(
   marcadoEn: Date,
@@ -173,41 +186,18 @@ export function esRetardo(
   toleranciaMin: number,
 ): boolean {
   if (!horarioDelDia || horarioDelDia.descansa) return false;
-
-  const horaPared = new Intl.DateTimeFormat("en-GB", {
-    timeZone: ZONA_HORARIA,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(marcadoEn);
-  // horaPared ej: "08:07"
-  const [hM, mM] = horaPared.split(":").map(Number);
-  const minutosMarcado = hM * 60 + mM;
-
-  // horarioDelDia.hora_entrada_esperada viene como "08:00:00"
-  const [hE, mE] = horarioDelDia.hora_entrada_esperada.split(":").map(Number);
-  const minutosEsperados = hE * 60 + mE;
-
-  return minutosMarcado > minutosEsperados + toleranciaMin;
+  return minutosTarde(marcadoEn, horarioDelDia) > toleranciaMin;
 }
 
 /**
  * Inicio del lunes de la semana actual (00:00 CDMX) como Date en UTC.
- * Útil para consultar marcas de la semana en curso.
- *
- * Convención: la semana empieza en lunes. (Aunque el día de pago es el
- * viernes, mostramos la semana lun-dom para que cuadre con la intuición
- * de los trabajadores.)
+ * Util para consultar marcas de la semana en curso.
  */
 export function inicioSemanaMx(ahora: Date = new Date()): Date {
   const dia = diaSemanaMx(ahora); // 0=dom..6=sab
-  // Cuántos días retroceder para llegar al lunes:
-  // dom(0)→6, lun(1)→0, mar(2)→1, ..., sab(6)→5
   const diasAtras = dia === 0 ? 6 : dia - 1;
 
   const hoyStr = fechaHoyMx(ahora); // YYYY-MM-DD en CDMX
-  // CDMX en mayo está en UTC-6 (sin DST desde 2022). Para evitar líos de
-  // DST construimos el Date a partir de medianoche local y restamos días.
   const [yyyy, mm, dd] = hoyStr.split("-").map(Number);
   // 06:00 UTC = 00:00 CDMX (UTC-6, sin horario de verano)
   const inicioHoyUtc = new Date(Date.UTC(yyyy, mm - 1, dd, 6, 0, 0));

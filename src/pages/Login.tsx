@@ -33,19 +33,10 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-navy-700">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#34c0c8"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 3" />
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-white border border-slate-200 shadow-sm">
+            <svg width="38" height="38" viewBox="6 8 168 212" xmlns="http://www.w3.org/2000/svg">
+              <path d="M 106.7 39 A 50 50 0 1 0 106.7 121" fill="none" stroke="#15b9d4" strokeWidth="34" strokeLinecap="butt" />
+              <polygon points="80,80 168,80 168,102 122,214 94,214 130,102 80,102" fill="#1d5aa6" />
             </svg>
           </div>
           <p className="text-[11px] font-semibold uppercase tracking-wider text-marca-600">

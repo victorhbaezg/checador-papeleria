@@ -115,7 +115,7 @@ export default function QrImprimir() {
               Escanea para registrar tu asistencia
             </h2>
             <ol className="mt-4 max-w-md list-decimal space-y-1 text-left text-base text-slate-700">
-              <li>Abre la app del checador en tu celular.</li>
+              <li>Abre la app Control Cyber 7 en tu celular.</li>
               <li>Toca el boton "Marcar entrada / salida".</li>
               <li>Apunta la camara a este codigo.</li>
               <li>Listo: queda registrada tu hora.</li>

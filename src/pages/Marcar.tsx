@@ -15,6 +15,7 @@ import {
   esRetardo,
   fechaHoyMx,
   formatoHoraMx,
+  minutosTarde,
   siguienteAccion,
   ZONA_HORARIA,
 } from "../lib/marcado";
@@ -146,7 +147,10 @@ export default function Marcar() {
 
       // 5) Solo la entrada real revisa retardo (considerando excepciones).
       //    El regreso de pausa nunca cuenta como retardo.
+      //    Si hay retardo, guardamos cuantos minutos tarde (desde la hora de
+      //    entrada) para poder descontarlos despues si se acumulan en la semana.
       let fueRetardo = false;
+      let minTarde = 0;
       if (tipo === "entrada") {
         const { data: excepcionData } = await supabase
           .from("horario_excepciones")
@@ -156,10 +160,11 @@ export default function Marcar() {
           .maybeSingle();
         const excepcion = excepcionData as HorarioExcepcion | null;
 
+        let horarioEfectivo: Horario | null = horarioRegular;
         if (excepcion && excepcion.es_dia_libre) {
-          fueRetardo = false;
+          horarioEfectivo = null; // dia libre: sin retardo posible
         } else if (excepcion && excepcion.hora_entrada_esperada) {
-          const horarioVirtual: Horario = {
+          horarioEfectivo = {
             id: "",
             trabajador_id: trabajador.id,
             dia_semana: dia,
@@ -169,14 +174,10 @@ export default function Marcar() {
             hora_pausa_inicio: null,
             hora_pausa_fin: null,
           };
-          fueRetardo = esRetardo(ahora, horarioVirtual, config.tolerancia_retardo_minutos);
-        } else {
-          fueRetardo = esRetardo(
-            ahora,
-            horarioRegular,
-            config.tolerancia_retardo_minutos,
-          );
         }
+
+        fueRetardo = esRetardo(ahora, horarioEfectivo, config.tolerancia_retardo_minutos);
+        if (fueRetardo) minTarde = minutosTarde(ahora, horarioEfectivo);
       }
 
       // 6) Insertar la marca
@@ -188,6 +189,7 @@ export default function Marcar() {
         qr_codigo_escaneado: codigoEscaneado,
         qr_valido: true,
         nota,
+        minutos_tarde: fueRetardo ? minTarde : null,
       });
       if (errInsert) throw new Error(errInsert.message);
 

@@ -104,6 +104,7 @@ export default function ReporteSemanal() {
       { data: horarios, error: errH },
       { data: faltasJustData },
       { data: excepcionesData },
+      { data: configData },
     ] = await Promise.all([
       supabase
         .from("marcas")
@@ -123,6 +124,7 @@ export default function ReporteSemanal() {
         .in("trabajador_id", ids)
         .gte("fecha", inicioStr)
         .eq("es_dia_libre", true),
+      supabase.from("configuracion").select("umbral_sancion_minutos").eq("id", 1).single(),
     ]);
 
     if (errM || errH) {
@@ -135,13 +137,22 @@ export default function ReporteSemanal() {
     const horariosData = (horarios ?? []) as Horario[];
     const faltasJust = (faltasJustData ?? []) as FaltaJustificada[];
     const excepciones = (excepcionesData ?? []) as HorarioExcepcion[];
+    const umbral =
+      (configData as { umbral_sancion_minutos: number } | null)?.umbral_sancion_minutos ?? 60;
 
     const resultado: FilaReporte[] = (trabajadores as Trabajador[]).map((t) => {
       const misMarcas = marcasData.filter((m) => m.trabajador_id === t.id);
       const misHorarios = horariosData.filter((h) => h.trabajador_id === t.id);
       const misFaltasJust = faltasJust.filter((f) => f.trabajador_id === t.id);
       const diasExcluidos = buildDiasExcluidos(faltasJust, excepciones, t.id);
-      const resumen = calcularResumenSemana(misMarcas, misHorarios, t.tarifa_hora, diasExcluidos);
+      const resumen = calcularResumenSemana(
+        misMarcas,
+        misHorarios,
+        t.tarifa_hora,
+        diasExcluidos,
+        new Date(),
+        umbral,
+      );
       return { trabajador: t, resumen, marcasSemana: misMarcas, faltasJustificadas: misFaltasJust };
     });
 
@@ -283,6 +294,26 @@ function TarjetaTrabajador({
         </div>
       </div>
 
+      {resumen.montoDescuento > 0 && (
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-rose-50 px-3 py-2 ring-1 ring-rose-200">
+          <div>
+            <p className="text-xs font-semibold text-rose-700">Descuento por retardos</p>
+            <p className="text-[11px] text-rose-500">
+              {resumen.minutosTarde} min tarde - {resumen.horasDescontadas.toFixed(1)} h
+            </p>
+          </div>
+          <p className="text-sm font-bold text-rose-600 tabular-nums">
+            -{pesos(resumen.montoDescuento)}
+          </p>
+        </div>
+      )}
+
+      {resumen.minutosTarde > 0 && resumen.montoDescuento === 0 && (
+        <p className="mt-2 text-[11px] text-slate-400">
+          {resumen.minutosTarde} min de retardo acumulados (aun no llega al limite para descontar).
+        </p>
+      )}
+
       {tieneIncidencias && (
         <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
           <button
@@ -400,6 +431,18 @@ function ModalDetalleSemanal({
             </div>
           </div>
 
+          {fila.resumen.montoDescuento > 0 && (
+            <div className="flex items-center justify-between rounded-lg bg-rose-50 px-4 py-2.5 ring-1 ring-rose-200">
+              <p className="text-xs font-medium text-rose-700">
+                Descuento por {fila.resumen.minutosTarde} min de retardo
+                ({fila.resumen.horasDescontadas.toFixed(1)} h)
+              </p>
+              <p className="text-sm font-bold text-rose-600 tabular-nums">
+                -{pesos(fila.resumen.montoDescuento)}
+              </p>
+            </div>
+          )}
+
           {/* Retardos */}
           <div>
             <p className="label-section mb-2">Retardos de la semana</p>
@@ -420,7 +463,8 @@ function ModalDetalleSemanal({
                       </p>
                       <p className="text-xs text-slate-400">
                         Entrada a las {horaCorta(m.marcado_en)}
-                        {m.justificada && " · Justificado"}
+                        {m.minutos_tarde ? ` - ${m.minutos_tarde} min tarde` : ""}
+                        {m.justificada && " - Justificado"}
                       </p>
                     </div>
                     <button

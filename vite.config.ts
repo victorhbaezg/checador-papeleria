@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg"],
       manifest: {
-        name: "Checador Papeleria",
-        short_name: "Checador",
+        name: "Control Cyber 7",
+        short_name: "Control C7",
         description: "Control de asistencia y nomina",
         theme_color: "#2563eb",
         background_color: "#f8fafc",

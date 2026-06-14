@@ -78,11 +78,11 @@ export default function Home() {
       <header className="bg-navy-700">
         <div className="mx-auto flex max-w-md items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34c0c8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 3" />
-              </svg>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white">
+              <svg width="26" height="26" viewBox="6 8 168 212" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 106.7 39 A 50 50 0 1 0 106.7 121" fill="none" stroke="#15b9d4" strokeWidth="34" strokeLinecap="butt" />
+                <polygon points="80,80 168,80 168,102 122,214 94,214 130,102 80,102" fill="#1d5aa6" />
+            </svg>
             </div>
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wider text-navy-200">Cyber 7</p>

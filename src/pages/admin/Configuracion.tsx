@@ -5,7 +5,6 @@ import { supabase, type Configuracion } from "../../lib/supabase";
 
 /** Genera un codigo aleatorio corto pero unico para el QR */
 function generarCodigoQR(): string {
-  // crypto.randomUUID() esta disponible en navegadores modernos
   const id = crypto.randomUUID().replace(/-/g, "");
   return `CYBER7-${id.substring(0, 16).toUpperCase()}`;
 }
@@ -17,6 +16,7 @@ export default function ConfiguracionPage() {
   // Form de configuracion general
   const [tolerancia, setTolerancia] = useState("");
   const [bono, setBono] = useState("");
+  const [umbralSancion, setUmbralSancion] = useState("");
 
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -39,6 +39,7 @@ export default function ConfiguracionPage() {
     setConfig(c);
     setTolerancia(String(c.tolerancia_retardo_minutos));
     setBono(String(c.monto_bono_mensual));
+    setUmbralSancion(String(c.umbral_sancion_minutos));
     setCargando(false);
   };
 
@@ -101,6 +102,7 @@ export default function ConfiguracionPage() {
 
     const tolNum = parseInt(tolerancia, 10);
     const bonoNum = parseFloat(bono);
+    const umbralNum = parseInt(umbralSancion, 10);
 
     if (!Number.isFinite(tolNum) || tolNum < 0 || tolNum > 60) {
       setMensaje({ tipo: "error", texto: "La tolerancia debe estar entre 0 y 60 minutos" });
@@ -110,6 +112,10 @@ export default function ConfiguracionPage() {
       setMensaje({ tipo: "error", texto: "El monto del bono debe ser un numero valido" });
       return;
     }
+    if (!Number.isFinite(umbralNum) || umbralNum < 0 || umbralNum > 600) {
+      setMensaje({ tipo: "error", texto: "El umbral de sancion debe estar entre 0 y 600 minutos" });
+      return;
+    }
 
     setGuardando(true);
     const { error } = await supabase
@@ -117,6 +123,7 @@ export default function ConfiguracionPage() {
       .update({
         tolerancia_retardo_minutos: tolNum,
         monto_bono_mensual: bonoNum,
+        umbral_sancion_minutos: umbralNum,
         actualizado_en: new Date().toISOString(),
       })
       .eq("id", 1);
@@ -288,6 +295,26 @@ export default function ConfiguracionPage() {
             />
             <p className="mt-1 text-xs text-slate-400">
               Se paga si el trabajador no tuvo ninguna falta ni retardo en el mes.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">
+              Sancion por retardos: limite semanal (minutos)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="600"
+              step="1"
+              value={umbralSancion}
+              onChange={(e) => setUmbralSancion(e.target.value)}
+              className="input-field"
+              required
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Si la suma de retardos de la semana llega a estos minutos, se descuenta todo
+              ese tiempo del pago (aunque hayan repuesto las horas). Pon 0 para desactivar.
             </p>
           </div>
 

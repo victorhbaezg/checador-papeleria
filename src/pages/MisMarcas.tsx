@@ -46,6 +46,7 @@ export default function MisMarcas() {
       { data: horariosData, error: errHorarios },
       { data: faltasJustData },
       { data: excepcionesData },
+      { data: configData },
     ] = await Promise.all([
       supabase
         .from("marcas")
@@ -68,6 +69,7 @@ export default function MisMarcas() {
         .eq("trabajador_id", trabajadorId)
         .gte("fecha", inicioStr)
         .eq("es_dia_libre", true),
+      supabase.from("configuracion").select("umbral_sancion_minutos").eq("id", 1).single(),
     ]);
 
     if (errMarcas || errHorarios) {
@@ -87,9 +89,19 @@ export default function MisMarcas() {
       if (e.es_dia_libre) diasExcluidos.add(e.fecha);
     }
 
+    const umbral =
+      (configData as { umbral_sancion_minutos: number } | null)?.umbral_sancion_minutos ?? 60;
+
     setDias(agruparPorDia(marcas));
     setResumen(
-      calcularResumenSemana(marcas, horarios, trabajador?.tarifa_hora ?? 0, diasExcluidos),
+      calcularResumenSemana(
+        marcas,
+        horarios,
+        trabajador?.tarifa_hora ?? 0,
+        diasExcluidos,
+        new Date(),
+        umbral,
+      ),
     );
     setCargando(false);
   };
@@ -158,9 +170,27 @@ export default function MisMarcas() {
               </div>
               <p className="text-2xl font-bold text-navy-700">{pesos(resumen.totalPago)}</p>
             </div>
+            {resumen.montoDescuento > 0 && (
+              <div className="mt-3 flex items-center justify-between border-t border-rose-100 pt-2">
+                <p className="text-xs font-medium text-rose-600">
+                  Descuento por retardos ({resumen.minutosTarde} min)
+                </p>
+                <p className="text-sm font-bold text-rose-600 tabular-nums">
+                  -{pesos(resumen.montoDescuento)}
+                </p>
+              </div>
+            )}
             <p className="mt-2 text-[11px] text-slate-400">
               Solo incluye dias con entrada y salida registradas.
             </p>
+          </div>
+        )}
+
+        {/* Aviso de retardos acumulados (aun sin descuento) */}
+        {resumen && resumen.minutosTarde > 0 && resumen.montoDescuento === 0 && (
+          <div className="rounded-lg bg-amber-50 p-4 text-xs text-amber-700 ring-1 ring-amber-200">
+            Llevas {resumen.minutosTarde} min de retardo esta semana. Si llegan a una hora
+            acumulada, se descuenta ese tiempo de tu pago.
           </div>
         )}
 
@@ -247,11 +277,7 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
 }
 
 /**
- * Agrupa marcas por fecha local (CDMX) y calcula:
- * - entrada: primera del dia
- * - salida: ultima del dia
- * - horas: diferencia (null si todavia no hay salida)
- * - fueRetardo: la marca de entrada trae nota='retardo'
+ * Agrupa marcas por fecha local (CDMX) y calcula entrada/salida/horas/retardo.
  */
 function agruparPorDia(marcas: Marca[]): ResumenDia[] {
   const porDia = new Map<string, Marca[]>();

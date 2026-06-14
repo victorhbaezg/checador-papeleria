@@ -68,6 +68,8 @@ export type Marca = {
   qr_valido: boolean;
   editada_por_admin: boolean;
   nota: string | null;
+  // Minutos de retraso desde la hora de entrada. Solo en entradas con retardo.
+  minutos_tarde: number | null;
   justificada: boolean;
   justificada_nota: string | null;
   creado_en: string;
@@ -79,6 +81,9 @@ export type Configuracion = {
   tolerancia_retardo_minutos: number;
   monto_bono_mensual: number;
   dia_corte_semana: number;
+  // Umbral semanal (min). Si la suma de retardos llega aqui, se descuenta el
+  // tiempo tarde. 0 = sancion desactivada.
+  umbral_sancion_minutos: number;
   actualizado_en: string;
 };
 
