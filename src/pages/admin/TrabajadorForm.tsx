@@ -156,50 +156,66 @@ export default function TrabajadorForm() {
           throw new Error("La contrasena debe tener al menos 6 caracteres");
         }
 
-        // Obtener el token de la sesion explicitamente (lectura local rapida).
-        // Lo pasamos a mano en vez de dejar que invoke() lo busque por dentro,
-        // que es donde se colgaba de forma intermitente.
+        // Token de la sesion (lectura local rapida desde localStorage).
         const { data: ses } = await conLimite(supabase.auth.getSession(), 6000);
         const token = ses?.session?.access_token;
         if (!token) {
           throw new Error("Tu sesion expiro. Cierra sesion y vuelve a entrar.");
         }
 
-        const respuesta = (await conLimite(
-          supabase.functions.invoke("crear-trabajador", {
-            headers: { Authorization: `Bearer ${token}` },
-            body: {
+        // Llamamos la Edge Function con fetch directo (en vez de
+        // supabase.functions.invoke, que se colgaba de forma intermitente).
+        // Asi controlamos el timeout con AbortController y damos mensajes de
+        // error claros segun lo que pase.
+        const urlFn = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crear-trabajador`;
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 20000);
+        let resp: Response;
+        try {
+          resp = await fetch(urlFn, {
+            method: "POST",
+            signal: ctrl.signal,
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
               nombre: nombre.trim(),
               usuario: usuario.trim().toLowerCase(),
               password,
               tarifa_hora: tarifaNum,
               es_admin: esAdmin,
-            },
-          }),
-        )) as {
-          data: { trabajador?: { id?: string }; error?: string } | null;
-          error: { message: string; context?: Response } | null;
-        };
-        const data = respuesta.data;
-        const errFn = respuesta.error;
-
-        if (errFn) {
-          // Intentar leer el mensaje del cuerpo de respuesta
-          const ctx = (errFn as { context?: Response }).context;
-          let msg = errFn.message;
-          if (ctx) {
-            try {
-              const body = await ctx.json();
-              if (body?.error) msg = body.error;
-            } catch {
-              /* ignorar */
-            }
+            }),
+          });
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") {
+            throw new Error(
+              "La solicitud tardo demasiado. Revisa tu conexion (o que el proyecto de Supabase no este pausado) y reintenta.",
+            );
           }
-          throw new Error(msg);
+          throw new Error("No se pudo conectar con el servidor. Revisa tu conexion.");
+        } finally {
+          clearTimeout(tid);
         }
 
-        if (data?.error) throw new Error(data.error);
-        trabajadorId = data?.trabajador?.id;
+        let cuerpo: { trabajador?: { id?: string }; error?: string } = {};
+        try {
+          cuerpo = await resp.json();
+        } catch {
+          /* respuesta sin cuerpo JSON */
+        }
+
+        if (!resp.ok) {
+          if (resp.status === 404) {
+            throw new Error(
+              "La funcion 'crear-trabajador' no esta desplegada en Supabase. Despliegala (ver GUIA_EDGE_FUNCTION.md) y reintenta.",
+            );
+          }
+          throw new Error(cuerpo.error ?? `Error del servidor (${resp.status}).`);
+        }
+        if (cuerpo.error) throw new Error(cuerpo.error);
+        trabajadorId = cuerpo.trabajador?.id;
       } else {
         // EDICION: actualizar campos editables
         const { error: errUp } = await supabase
