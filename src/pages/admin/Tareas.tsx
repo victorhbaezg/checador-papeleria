@@ -9,6 +9,8 @@ import { DIAS_SEMANA } from "../../lib/dias";
 import { fechaHoyMx } from "../../lib/marcado";
 import {
   cargarCompletadas,
+  cargarTareasActivasTodos,
+  cargarCompletadasTodos,
   diariaAplica,
   periodoDe,
   semanaDe,
@@ -23,7 +25,7 @@ import {
 // Modo de repeticion al crear la tarea.
 type ModoTarea = "diaria" | "dias" | "semanal";
 // Pestana principal de la pantalla.
-type Vista = "lista" | "calendario";
+type Vista = "lista" | "calendario" | "todos";
 // Granularidad del calendario.
 type ModoCal = "dia" | "semana" | "mes";
 
@@ -167,8 +169,8 @@ export default function AdminTareas() {
           </select>
         </div>
 
-        {/* Pestanas Lista / Calendario */}
-        <div className="grid grid-cols-2 gap-2">
+        {/* Pestanas Lista / Calendario / Todos */}
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => setVista("lista")}
@@ -191,10 +193,23 @@ export default function AdminTareas() {
           >
             Calendario
           </button>
+          <button
+            type="button"
+            onClick={() => setVista("todos")}
+            className={`rounded-lg border py-2.5 text-sm font-semibold transition ${
+              vista === "todos"
+                ? "border-navy-400 bg-navy-50 text-navy-700"
+                : "border-slate-200 bg-white text-slate-500"
+            }`}
+          >
+            Todos
+          </button>
         </div>
 
         {vista === "calendario" ? (
           <Planner trabajadorId={seleccionado} tareas={tareas.filter((t) => t.activo)} />
+        ) : vista === "todos" ? (
+          <MatrizTodos trabajadores={trabajadores} />
         ) : (
           <>
             {/* Agregar tarea */}
@@ -789,5 +804,160 @@ function ListaTareas({
         </div>
       ))}
     </div>
+  );
+}
+
+// ============================================================
+//  MATRIZ: TODOS LOS TRABAJADORES (vista semanal)
+// ============================================================
+
+function MatrizTodos({ trabajadores }: { trabajadores: Trabajador[] }) {
+  const hoy = fechaHoyMx();
+  const [cursor, setCursor] = useState<string>(hoy);
+  const [tareas, setTareas] = useState<Tarea[]>([]);
+  const [hechas, setHechas] = useState<Set<string>>(new Set());
+  const [cargando, setCargando] = useState(false);
+
+  const dias = semanaDe(cursor);
+
+  useEffect(() => {
+    let cancelado = false;
+    const cargar = async () => {
+      setCargando(true);
+      const todas = await cargarTareasActivasTodos();
+      const periodos = [...dias, ...dias.map(lunesDe)];
+      const set = await cargarCompletadasTodos(periodos);
+      if (!cancelado) {
+        setTareas(todas);
+        setHechas(set);
+        setCargando(false);
+      }
+    };
+    void cargar();
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursor]);
+
+  const tareasDe = (id: string) => tareas.filter((t) => t.trabajador_id === id);
+  const semanaLabel = `${fmt(dias[0], { day: "numeric", month: "short" })} – ${fmt(dias[6], { day: "numeric", month: "short" })}`;
+
+  return (
+    <div className="space-y-3">
+      {/* Navegacion de semana */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setCursor(sumarDias(cursor, -7))}
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 transition hover:ring-navy-400 hover:text-navy-700"
+          aria-label="Semana anterior"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <div className="flex flex-col items-center">
+          <p className="text-sm font-semibold text-slate-800">{semanaLabel}</p>
+          <button
+            type="button"
+            onClick={() => setCursor(hoy)}
+            className="text-[11px] font-semibold text-marca-600 hover:underline"
+          >
+            Hoy
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCursor(sumarDias(cursor, 7))}
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-500 ring-1 ring-slate-200 transition hover:ring-navy-400 hover:text-navy-700"
+          aria-label="Semana siguiente"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+        </button>
+      </div>
+
+      {cargando && <p className="text-center text-xs text-slate-400">Cargando...</p>}
+
+      {trabajadores.length === 0 ? (
+        <div className="card text-center text-sm text-slate-500">
+          No hay trabajadores activos.
+        </div>
+      ) : (
+        <div className="card overflow-x-auto p-2">
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 bg-white px-2 py-1 text-left font-semibold text-slate-400">
+                  Trabajador
+                </th>
+                {dias.map((f) => (
+                  <th
+                    key={f}
+                    className={`px-1 py-1 text-center font-semibold ${
+                      f === hoy ? "text-navy-700" : "text-slate-400"
+                    }`}
+                  >
+                    <div>{cap(fmt(f, { weekday: "short" }))}</div>
+                    <div className="text-[10px] font-normal">{fmt(f, { day: "numeric" })}</div>
+                  </th>
+                ))}
+                <th className="px-1 py-1 text-center font-semibold text-slate-400">Sem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trabajadores.map((w) => {
+                const mias = tareasDe(w.id);
+                const sem = mias.filter((t) => t.frecuencia === "semanal");
+                const hechasSem = sem.filter((t) =>
+                  hechas.has(`${t.id}|${lunesDe(cursor)}`),
+                ).length;
+                return (
+                  <tr key={w.id} className="border-t border-slate-100">
+                    <td className="sticky left-0 z-10 bg-white px-2 py-1.5 font-medium text-slate-700">
+                      <span className="block max-w-[96px] truncate">{w.nombre}</span>
+                    </td>
+                    {dias.map((f) => {
+                      const delDia = mias.filter(
+                        (t) => t.frecuencia === "diaria" && diariaAplica(t, f),
+                      );
+                      const h = delDia.filter((t) => hechas.has(`${t.id}|${f}`)).length;
+                      return (
+                        <td
+                          key={f}
+                          className={`px-1 py-1.5 text-center ${f === hoy ? "bg-navy-50/60" : ""}`}
+                        >
+                          <CeldaAvance hechas={h} total={delDia.length} />
+                        </td>
+                      );
+                    })}
+                    <td className="px-1 py-1.5 text-center">
+                      <CeldaAvance hechas={hechasSem} total={sem.length} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="text-center text-[11px] text-slate-400">
+        Verde = todo hecho, ambar = pendiente, — = sin tareas ese dia. "Sem" = tareas de cada semana.
+      </p>
+    </div>
+  );
+}
+
+/** Celda compacta de avance hechas/total con color. */
+function CeldaAvance({ hechas, total }: { hechas: number; total: number }) {
+  if (total === 0) return <span className="text-slate-300">—</span>;
+  const completo = hechas === total;
+  return (
+    <span
+      className={`inline-block rounded-md px-1.5 py-0.5 text-[11px] font-bold ${
+        completo ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+      }`}
+    >
+      {hechas}/{total}
+    </span>
   );
 }

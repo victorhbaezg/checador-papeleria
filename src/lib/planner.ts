@@ -112,3 +112,34 @@ export async function cargarCompletadas(
     ),
   );
 }
+
+/** Todas las tareas activas de todos los trabajadores (solo admin via RLS). */
+export async function cargarTareasActivasTodos(): Promise<Tarea[]> {
+  const { data } = await supabase
+    .from("tareas")
+    .select("*")
+    .eq("activo", true)
+    .order("orden", { ascending: true })
+    .order("creado_en", { ascending: true });
+  return (data ?? []) as Tarea[];
+}
+
+/**
+ * Completadas de TODOS los trabajadores en los periodos dados.
+ * La clave del Set es `${tarea_id}|${periodo}` (tarea_id ya es unico).
+ */
+export async function cargarCompletadasTodos(
+  periodos: string[],
+): Promise<Set<string>> {
+  const unicos = Array.from(new Set(periodos));
+  if (unicos.length === 0) return new Set();
+  const { data } = await supabase
+    .from("tareas_completadas")
+    .select("tarea_id, periodo")
+    .in("periodo", unicos);
+  return new Set(
+    (data ?? []).map(
+      (c: { tarea_id: string; periodo: string }) => `${c.tarea_id}|${c.periodo}`,
+    ),
+  );
+}
