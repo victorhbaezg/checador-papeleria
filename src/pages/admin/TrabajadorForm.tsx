@@ -25,6 +25,22 @@ const horariosDefault: HorarioForm[] = DIAS_SEMANA.map((d) => ({
   hora_pausa_fin: "17:00",
 }));
 
+// Limite de tiempo para llamadas de red que pueden colgarse (p.ej. la Edge
+// Function si el token tarda en renovarse). Sin esto, si invoke() nunca
+// resuelve, el boton se queda en "Guardando..." para siempre.
+function conLimite<T>(p: Promise<T>, ms = 20000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(
+      () => reject(new Error("La solicitud tardo demasiado. Revisa tu conexion y reintenta.")),
+      ms,
+    );
+    p.then(
+      (v) => { clearTimeout(id); resolve(v); },
+      (e) => { clearTimeout(id); reject(e); },
+    );
+  });
+}
+
 export default function TrabajadorForm() {
   const { id } = useParams<{ id: string }>();
   const esEdicion = Boolean(id);
@@ -140,9 +156,18 @@ export default function TrabajadorForm() {
           throw new Error("La contrasena debe tener al menos 6 caracteres");
         }
 
-        const { data, error: errFn } = await supabase.functions.invoke(
-          "crear-trabajador",
-          {
+        // Obtener el token de la sesion explicitamente (lectura local rapida).
+        // Lo pasamos a mano en vez de dejar que invoke() lo busque por dentro,
+        // que es donde se colgaba de forma intermitente.
+        const { data: ses } = await conLimite(supabase.auth.getSession(), 6000);
+        const token = ses?.session?.access_token;
+        if (!token) {
+          throw new Error("Tu sesion expiro. Cierra sesion y vuelve a entrar.");
+        }
+
+        const respuesta = (await conLimite(
+          supabase.functions.invoke("crear-trabajador", {
+            headers: { Authorization: `Bearer ${token}` },
             body: {
               nombre: nombre.trim(),
               usuario: usuario.trim().toLowerCase(),
@@ -150,8 +175,13 @@ export default function TrabajadorForm() {
               tarifa_hora: tarifaNum,
               es_admin: esAdmin,
             },
-          },
-        );
+          }),
+        )) as {
+          data: { trabajador?: { id?: string }; error?: string } | null;
+          error: { message: string; context?: Response } | null;
+        };
+        const data = respuesta.data;
+        const errFn = respuesta.error;
 
         if (errFn) {
           // Intentar leer el mensaje del cuerpo de respuesta
