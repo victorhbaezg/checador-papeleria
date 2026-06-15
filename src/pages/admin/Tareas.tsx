@@ -907,30 +907,33 @@ function MatrizTodos({ trabajadores }: { trabajadores: Trabajador[] }) {
               {trabajadores.map((w) => {
                 const mias = tareasDe(w.id);
                 const sem = mias.filter((t) => t.frecuencia === "semanal");
-                const hechasSem = sem.filter((t) =>
-                  hechas.has(`${t.id}|${lunesDe(cursor)}`),
-                ).length;
+                const semItems = sem.map((t) => ({
+                  titulo: t.titulo,
+                  hecha: hechas.has(`${t.id}|${lunesDe(cursor)}`),
+                }));
                 return (
                   <tr key={w.id} className="border-t border-slate-100">
-                    <td className="sticky left-0 z-10 bg-white px-2 py-1.5 font-medium text-slate-700">
+                    <td className="sticky left-0 z-10 bg-white px-2 py-1.5 align-top font-medium text-slate-700">
                       <span className="block max-w-[96px] truncate">{w.nombre}</span>
                     </td>
                     {dias.map((f) => {
-                      const delDia = mias.filter(
-                        (t) => t.frecuencia === "diaria" && diariaAplica(t, f),
-                      );
-                      const h = delDia.filter((t) => hechas.has(`${t.id}|${f}`)).length;
+                      const items = mias
+                        .filter((t) => t.frecuencia === "diaria" && diariaAplica(t, f))
+                        .map((t) => ({
+                          titulo: t.titulo,
+                          hecha: hechas.has(`${t.id}|${f}`),
+                        }));
                       return (
                         <td
                           key={f}
-                          className={`px-1 py-1.5 text-center ${f === hoy ? "bg-navy-50/60" : ""}`}
+                          className={`min-w-[130px] px-1 py-1.5 align-top ${f === hoy ? "bg-navy-50/60" : ""}`}
                         >
-                          <CeldaAvance hechas={h} total={delDia.length} />
+                          <CeldaTareas items={items} />
                         </td>
                       );
                     })}
-                    <td className="px-1 py-1.5 text-center">
-                      <CeldaAvance hechas={hechasSem} total={sem.length} />
+                    <td className="min-w-[130px] px-1 py-1.5 align-top">
+                      <CeldaTareas items={semItems} />
                     </td>
                   </tr>
                 );
@@ -941,23 +944,44 @@ function MatrizTodos({ trabajadores }: { trabajadores: Trabajador[] }) {
       )}
 
       <p className="text-center text-[11px] text-slate-400">
-        Verde = todo hecho, ambar = pendiente, — = sin tareas ese dia. "Sem" = tareas de cada semana.
+        Cada celda lista las tareas del dia; tachada = hecha. "Sem" = tareas de cada semana.
       </p>
     </div>
   );
 }
 
-/** Celda compacta de avance hechas/total con color. */
-function CeldaAvance({ hechas, total }: { hechas: number; total: number }) {
-  if (total === 0) return <span className="text-slate-300">—</span>;
-  const completo = hechas === total;
+/** Celda que lista las tareas del dia (titulo primero, check al lado). */
+function CeldaTareas({ items }: { items: { titulo: string; hecha: boolean }[] }) {
+  if (items.length === 0) return <span className="text-slate-300">—</span>;
   return (
-    <span
-      className={`inline-block rounded-md px-1.5 py-0.5 text-[11px] font-bold ${
-        completo ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-      }`}
-    >
-      {hechas}/{total}
-    </span>
+    <div className="space-y-1">
+      {items.map((it, i) => (
+        <div
+          key={i}
+          className={`flex items-start justify-between gap-1 rounded px-1 py-0.5 ${
+            it.hecha ? "bg-emerald-50" : "bg-slate-50"
+          }`}
+        >
+          <span
+            className={`text-[10px] leading-tight ${
+              it.hecha ? "text-slate-400 line-through" : "text-slate-700"
+            }`}
+          >
+            {it.titulo}
+          </span>
+          <span
+            className={`mt-[1px] flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded border ${
+              it.hecha
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : "border-slate-300 bg-white"
+            }`}
+          >
+            {it.hecha && (
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            )}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
