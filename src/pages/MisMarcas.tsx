@@ -301,15 +301,30 @@ function agruparPorDia(marcas: Marca[]): ResumenDia[] {
       const entrada = entradas[0] ?? null;
       const salida = salidas[salidas.length - 1] ?? null;
 
+      // Minutos que regreso tarde de la pausa (esos no se cuentan trabajados).
+      const minPausaTarde = ms
+        .filter(
+          (m) =>
+            m.tipo === "pausa_fin" &&
+            m.nota === "retardo" &&
+            !m.justificada &&
+            m.minutos_tarde,
+        )
+        .reduce((s, m) => s + (m.minutos_tarde ?? 0), 0);
+
       let horas: number | null = null;
       if (entrada && salida) {
         const ms2 =
           new Date(salida.marcado_en).getTime() -
           new Date(entrada.marcado_en).getTime();
-        if (ms2 > 0) horas = ms2 / 3_600_000;
+        if (ms2 > 0) horas = Math.max(0, ms2 / 3_600_000 - minPausaTarde / 60);
       }
 
-      const fueRetardo = entradas.some((m) => m.nota === "retardo" && !m.justificada);
+      const fueRetardo =
+        entradas.some((m) => m.nota === "retardo" && !m.justificada) ||
+        ms.some(
+          (m) => m.tipo === "pausa_fin" && m.nota === "retardo" && !m.justificada,
+        );
 
       return { fechaLocal, entrada, salida, horas, fueRetardo };
     });

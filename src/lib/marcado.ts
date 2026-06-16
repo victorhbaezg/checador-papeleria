@@ -190,6 +190,34 @@ export function esRetardo(
 }
 
 /**
+ * Minutos que un trabajador regresa tarde de su pausa programada.
+ * Se mide desde la hora_pausa_fin del horario (NO desde la tolerancia).
+ * Devuelve 0 si no hay pausa programada o si regreso a tiempo/antes.
+ */
+export function minutosTardePausa(
+  marcadoEn: Date,
+  horarioDelDia: Horario | null | undefined,
+): number {
+  if (!tienePausaProgramada(horarioDelDia)) return 0;
+  const minutosMarcado = minutosPared(marcadoEn);
+  const minutosEsperados = horaTextoAMin(horarioDelDia!.hora_pausa_fin!);
+  return Math.max(0, minutosMarcado - minutosEsperados);
+}
+
+/**
+ * Determina si el regreso de pausa cuenta como retardo.
+ * Mismo criterio de tolerancia que la entrada del dia.
+ */
+export function esRetardoPausa(
+  marcadoEn: Date,
+  horarioDelDia: Horario | null | undefined,
+  toleranciaMin: number,
+): boolean {
+  if (!tienePausaProgramada(horarioDelDia)) return false;
+  return minutosTardePausa(marcadoEn, horarioDelDia) > toleranciaMin;
+}
+
+/**
  * Inicio del lunes de la semana actual (00:00 CDMX) como Date en UTC.
  * Util para consultar marcas de la semana en curso.
  */

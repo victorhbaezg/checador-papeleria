@@ -13,9 +13,11 @@ import {
 import {
   diaSemanaMx,
   esRetardo,
+  esRetardoPausa,
   fechaHoyMx,
   formatoHoraMx,
   minutosTarde,
+  minutosTardePausa,
   siguienteAccion,
   ZONA_HORARIA,
 } from "../lib/marcado";
@@ -145,10 +147,10 @@ export default function Marcar() {
       // 4) Decidir el tipo de marca considerando la pausa programada
       const tipo = siguienteAccion(marcasHoy, horarioRegular, ahora);
 
-      // 5) Solo la entrada real revisa retardo (considerando excepciones).
-      //    El regreso de pausa nunca cuenta como retardo.
-      //    Si hay retardo, guardamos cuantos minutos tarde (desde la hora de
-      //    entrada) para poder descontarlos despues si se acumulan en la semana.
+      // 5) Revisamos retardo en la entrada (con excepciones) y tambien en el
+      //    regreso de pausa (vs hora_pausa_fin, con la misma tolerancia).
+      //    Si hay retardo, guardamos cuantos minutos tarde para descontarlos
+      //    despues si se acumulan en la semana.
       let fueRetardo = false;
       let minTarde = 0;
       if (tipo === "entrada") {
@@ -178,10 +180,19 @@ export default function Marcar() {
 
         fueRetardo = esRetardo(ahora, horarioEfectivo, config.tolerancia_retardo_minutos);
         if (fueRetardo) minTarde = minutosTarde(ahora, horarioEfectivo);
+      } else if (tipo === "pausa_fin") {
+        // Regreso de pausa: cuenta retardo si vuelve tarde (con tolerancia).
+        // No se aplican excepciones porque estas no definen horario de pausa.
+        fueRetardo = esRetardoPausa(
+          ahora,
+          horarioRegular,
+          config.tolerancia_retardo_minutos,
+        );
+        if (fueRetardo) minTarde = minutosTardePausa(ahora, horarioRegular);
       }
 
       // 6) Insertar la marca
-      const nota = tipo === "entrada" && fueRetardo ? "retardo" : null;
+      const nota = fueRetardo ? "retardo" : null;
       const { error: errInsert } = await supabase.from("marcas").insert({
         trabajador_id: trabajador.id,
         tipo,

@@ -48,7 +48,7 @@ export function descuentoRetardos(
   const minutosPorSemana = new Map<string, number>();
   for (const m of marcas) {
     if (
-      m.tipo === "entrada" &&
+      (m.tipo === "entrada" || m.tipo === "pausa_fin") &&
       m.nota === "retardo" &&
       !m.justificada &&
       m.minutos_tarde
@@ -147,32 +147,48 @@ export function calcularResumenSemana(
     return !fechasConEntrada.has(fecha) && !diasExcluidos.has(fecha);
   }).length;
 
-  const porDia = new Map<string, { entradas: Marca[]; salidas: Marca[] }>();
+  const porDia = new Map<
+    string,
+    { entradas: Marca[]; salidas: Marca[]; minPausaTarde: number }
+  >();
   for (const m of marcas) {
     const fecha = isoAFechaMx(m.marcado_en);
-    if (!porDia.has(fecha)) porDia.set(fecha, { entradas: [], salidas: [] });
+    if (!porDia.has(fecha))
+      porDia.set(fecha, { entradas: [], salidas: [], minPausaTarde: 0 });
     if (m.tipo === "entrada") {
       porDia.get(fecha)!.entradas.push(m);
     } else if (m.tipo === "salida") {
       porDia.get(fecha)!.salidas.push(m);
+    } else if (
+      m.tipo === "pausa_fin" &&
+      m.nota === "retardo" &&
+      !m.justificada &&
+      m.minutos_tarde
+    ) {
+      // Regreso tarde de la pausa: esos minutos no se cuentan como trabajados.
+      porDia.get(fecha)!.minPausaTarde += m.minutos_tarde;
     }
-    // Las marcas de pausa (pausa_inicio/pausa_fin) se ignoran aqui: la pausa
-    // se paga normal, asi que las horas siguen siendo entrada -> ultima salida.
+    // pausa_inicio se ignora: la pausa puntual se paga normal.
   }
 
   let horasTrabajadas = 0;
-  for (const { entradas, salidas } of porDia.values()) {
+  for (const { entradas, salidas, minPausaTarde } of porDia.values()) {
     if (entradas.length > 0 && salidas.length > 0) {
       const msEntrada = new Date(entradas[0].marcado_en).getTime();
       const msSalida = new Date(salidas[salidas.length - 1].marcado_en).getTime();
       const ms = msSalida - msEntrada;
-      if (ms > 0) horasTrabajadas += ms / (1000 * 60 * 60);
+      if (ms > 0) {
+        horasTrabajadas += Math.max(0, ms / (1000 * 60 * 60) - minPausaTarde / 60);
+      }
     }
   }
 
   // Retardos = entradas con nota='retardo' que NO esten justificadas
   const retardos = marcas.filter(
-    (m) => m.tipo === "entrada" && m.nota === "retardo" && !m.justificada,
+    (m) =>
+      (m.tipo === "entrada" || m.tipo === "pausa_fin") &&
+      m.nota === "retardo" &&
+      !m.justificada,
   ).length;
 
   const desc = descuentoRetardos(marcas, tarifaHora, umbralSancionMin);
@@ -284,25 +300,42 @@ export function calcularResumenMes(
   }
 
   const retardos = marcas.filter(
-    (m) => m.tipo === "entrada" && m.nota === "retardo" && !m.justificada,
+    (m) =>
+      (m.tipo === "entrada" || m.tipo === "pausa_fin") &&
+      m.nota === "retardo" &&
+      !m.justificada,
   ).length;
 
-  const porDia = new Map<string, { entradas: Marca[]; salidas: Marca[] }>();
+  const porDia = new Map<
+    string,
+    { entradas: Marca[]; salidas: Marca[]; minPausaTarde: number }
+  >();
   for (const m of marcas) {
     const fecha = isoAFechaMx(m.marcado_en);
-    if (!porDia.has(fecha)) porDia.set(fecha, { entradas: [], salidas: [] });
+    if (!porDia.has(fecha))
+      porDia.set(fecha, { entradas: [], salidas: [], minPausaTarde: 0 });
     if (m.tipo === "entrada") porDia.get(fecha)!.entradas.push(m);
     else if (m.tipo === "salida") porDia.get(fecha)!.salidas.push(m);
-    // Las marcas de pausa no cuentan para el emparejado de horas.
+    else if (
+      m.tipo === "pausa_fin" &&
+      m.nota === "retardo" &&
+      !m.justificada &&
+      m.minutos_tarde
+    ) {
+      // Regreso tarde de la pausa: esos minutos no se cuentan como trabajados.
+      porDia.get(fecha)!.minPausaTarde += m.minutos_tarde;
+    }
   }
 
   let horasTrabajadas = 0;
-  for (const { entradas, salidas } of porDia.values()) {
+  for (const { entradas, salidas, minPausaTarde } of porDia.values()) {
     if (entradas.length > 0 && salidas.length > 0) {
       const ms =
         new Date(salidas[salidas.length - 1].marcado_en).getTime() -
         new Date(entradas[0].marcado_en).getTime();
-      if (ms > 0) horasTrabajadas += ms / 3_600_000;
+      if (ms > 0) {
+        horasTrabajadas += Math.max(0, ms / 3_600_000 - minPausaTarde / 60);
+      }
     }
   }
 
