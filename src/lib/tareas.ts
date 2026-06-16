@@ -12,6 +12,7 @@ import {
   type TareaCompletada,
 } from "./supabase";
 import { clavePeriodo, diaSemanaMx } from "./marcado";
+import { lunesDe } from "./planner";
 
 /** Una tarea con su estado (hecha o no) para el periodo actual. */
 export type TareaConEstado = Tarea & { hecha: boolean; periodo: string };
@@ -53,11 +54,17 @@ export async function cargarTareas(
   const comp = (compData ?? []) as TareaCompletada[];
   const hechasSet = new Set(comp.map((c) => `${c.tarea_id}|${c.periodo}`));
 
-  // Las tareas "diaria" con dias_semana definidos solo aplican hoy si hoy
-  // esta en su lista. Las "semanal" y las sin dias aplican siempre.
+  // Reglas de cuando una tarea aplica "hoy":
+  //  - semanal recurrente: siempre; semanal de una vez: solo si su fecha cae
+  //    en la semana actual.
+  //  - diaria de una vez: solo ese dia exacto.
+  //  - diaria recurrente: todos los dias, o solo los dias_semana indicados.
   const hoyDia = diaSemanaMx(ahora);
   const aplicaHoy = (t: Tarea): boolean => {
-    if (t.frecuencia !== "diaria") return true;
+    if (t.frecuencia === "semanal") {
+      return t.fecha ? lunesDe(t.fecha) === claveSemanal : true;
+    }
+    if (t.fecha) return t.fecha === claveDiaria;
     if (!t.dias_semana || t.dias_semana.length === 0) return true;
     return t.dias_semana.includes(hoyDia);
   };

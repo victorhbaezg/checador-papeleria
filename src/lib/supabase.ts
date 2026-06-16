@@ -120,6 +120,9 @@ export type Tarea = {
   // Solo para frecuencia "diaria": dias de la semana en que aplica (0=dom..6=sab).
   // null o vacio = todos los dias.
   dias_semana: number[] | null;
+  // Tarea de una sola vez: diaria = ese dia exacto ("YYYY-MM-DD"); semanal =
+  // la semana que contiene esa fecha. null = recurrente.
+  fecha: string | null;
   activo: boolean;
   orden: number;
   creado_en: string;

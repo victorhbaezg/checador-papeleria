@@ -85,8 +85,21 @@ export function periodoDe(t: Tarea, fecha: string): string {
  */
 export function diariaAplica(t: Tarea, fecha: string): boolean {
   if (t.frecuencia !== "diaria") return false;
+  // Tarea de una vez: solo aplica en su fecha exacta.
+  if (t.fecha) return t.fecha === fecha;
   if (!t.dias_semana || t.dias_semana.length === 0) return true;
   return t.dias_semana.includes(diaSemanaDe(fecha));
+}
+
+/**
+ * Indica si una tarea SEMANAL aplica en la semana que contiene `fecha`.
+ * - de una vez (con fecha) = solo la semana de esa fecha.
+ * - recurrente = todas las semanas.
+ */
+export function semanalAplica(t: Tarea, fecha: string): boolean {
+  if (t.frecuencia !== "semanal") return false;
+  if (t.fecha) return lunesDe(t.fecha) === lunesDe(fecha);
+  return true;
 }
 
 // --- Carga de completadas por rango ---------------------------------------

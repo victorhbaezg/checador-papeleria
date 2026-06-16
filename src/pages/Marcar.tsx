@@ -21,7 +21,12 @@ import {
   siguienteAccion,
   ZONA_HORARIA,
 } from "../lib/marcado";
-import { cargarTareas, type ResumenTareas } from "../lib/tareas";
+import {
+  cargarTareas,
+  alternarTarea,
+  type ResumenTareas,
+  type TareaConEstado,
+} from "../lib/tareas";
 
 type Estado =
   | { kind: "preparando" }
@@ -204,9 +209,10 @@ export default function Marcar() {
       });
       if (errInsert) throw new Error(errInsert.message);
 
-      // 7) Si es la salida del dia, traer el resumen de tareas para mostrarlo
+      // 7) Para entrada y salida traemos las tareas del dia y de la semana.
+      //    En la entrada se muestran como recordatorio; en la salida se marcan.
       let tareas: ResumenTareas | null = null;
-      if (tipo === "salida") {
+      if (tipo === "entrada" || tipo === "salida") {
         try {
           tareas = await cargarTareas(trabajador.id, ahora);
         } catch {
@@ -251,6 +257,7 @@ export default function Marcar() {
             tipo={estado.tipo}
             hora={estado.hora}
             tareas={estado.tareas}
+            trabajadorId={trabajador.id}
             onIrAHome={() => navigate("/")}
           />
         ) : (
@@ -311,13 +318,32 @@ function PantallaExito({
   tipo,
   hora,
   tareas,
+  trabajadorId,
   onIrAHome,
 }: {
   tipo: TipoMarca;
   hora: string;
   tareas: ResumenTareas | null;
+  trabajadorId: string;
   onIrAHome: () => void;
 }) {
+  // En la salida el trabajador puede marcar sus tareas aqui mismo.
+  const [resumen, setResumen] = useState<ResumenTareas | null>(tareas);
+  const [guardandoId, setGuardandoId] = useState<string | null>(null);
+
+  const alternar = async (t: TareaConEstado) => {
+    if (tipo !== "salida" || guardandoId) return;
+    setGuardandoId(t.id);
+    setResumen((prev) => recalcular(prev, t.id));
+    try {
+      await alternarTarea(t, trabajadorId);
+    } catch {
+      setResumen((prev) => recalcular(prev, t.id)); // revertir si falla
+    } finally {
+      setGuardandoId(null);
+    }
+  };
+
   const fechaLarga = new Intl.DateTimeFormat("es-MX", {
     timeZone: ZONA_HORARIA,
     weekday: "long",
@@ -341,61 +367,38 @@ function PantallaExito({
         <p className="mt-2 text-xs text-slate-400">{etiqueta.nota}</p>
       </div>
 
-      {/* Resumen de tareas al cerrar el turno */}
-      {tipo === "salida" && tareas && tareas.total > 0 && (
+      {/* Tareas: recordatorio al entrar, checklist para marcar al cerrar */}
+      {(tipo === "entrada" || tipo === "salida") && resumen && resumen.total > 0 && (
         <div className="card">
           <div className="flex items-center justify-between">
-            <p className="label-section">Tareas de hoy</p>
+            <p className="label-section">
+              {tipo === "salida" ? "Estado de tus tareas" : "Tus tareas"}
+            </p>
             <span
               className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
-                tareas.pendientes === 0
+                resumen.pendientes === 0
                   ? "bg-emerald-100 text-emerald-700"
                   : "bg-amber-100 text-amber-700"
               }`}
             >
-              {tareas.hechas}/{tareas.total}
+              {resumen.hechas}/{resumen.total}
             </span>
           </div>
 
-          {tareas.pendientes === 0 ? (
-            <p className="mt-2 text-sm font-medium text-emerald-700">
-              Terminaste todas tus tareas. Bien hecho.
-            </p>
-          ) : (
-            <p className="mt-2 text-sm text-slate-600">
-              Te quedaron {tareas.pendientes} sin marcar:
-            </p>
-          )}
+          <p className="mt-1 text-xs text-slate-500">
+            {tipo === "salida"
+              ? resumen.pendientes === 0
+                ? "Terminaste todo. Bien hecho."
+                : "Marca lo que completaste antes de irte."
+              : "Esto es lo que tienes para hoy y esta semana."}
+          </p>
 
-          <ul className="mt-3 space-y-1.5">
-            {tareas.items.map((t) => (
-              <li key={t.id} className="flex items-center gap-2 text-sm">
-                {t.hecha ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-                    <circle cx="12" cy="12" r="9" />
-                  </svg>
-                )}
-                <span className={t.hecha ? "text-slate-400 line-through" : "text-slate-800"}>
-                  {t.titulo}
-                </span>
-                {t.frecuencia === "semanal" && (
-                  <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                    Semanal
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-
-          {tareas.pendientes > 0 && (
-            <Link to="/tareas" className="btn-secondary mt-4 w-full py-2 text-sm">
-              Ver y marcar tareas
-            </Link>
-          )}
+          <TareasChecklist
+            items={resumen.items}
+            interactivo={tipo === "salida"}
+            guardandoId={guardandoId}
+            onAlternar={alternar}
+          />
         </div>
       )}
 
@@ -404,4 +407,127 @@ function PantallaExito({
       </button>
     </div>
   );
+}
+
+function TareasChecklist({
+  items,
+  interactivo,
+  guardandoId,
+  onAlternar,
+}: {
+  items: TareaConEstado[];
+  interactivo: boolean;
+  guardandoId: string | null;
+  onAlternar: (t: TareaConEstado) => void;
+}) {
+  const diarias = items.filter((t) => t.frecuencia === "diaria");
+  const semanales = items.filter((t) => t.frecuencia === "semanal");
+  return (
+    <div className="mt-3 space-y-3">
+      {diarias.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            De hoy
+          </p>
+          {diarias.map((t) => (
+            <FilaCheck
+              key={t.id}
+              tarea={t}
+              interactivo={interactivo}
+              guardando={guardandoId === t.id}
+              onAlternar={() => onAlternar(t)}
+            />
+          ))}
+        </div>
+      )}
+      {semanales.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            De la semana
+          </p>
+          {semanales.map((t) => (
+            <FilaCheck
+              key={t.id}
+              tarea={t}
+              interactivo={interactivo}
+              guardando={guardandoId === t.id}
+              onAlternar={() => onAlternar(t)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilaCheck({
+  tarea,
+  interactivo,
+  guardando,
+  onAlternar,
+}: {
+  tarea: TareaConEstado;
+  interactivo: boolean;
+  guardando: boolean;
+  onAlternar: () => void;
+}) {
+  const contenido = (
+    <>
+      <span
+        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2 transition ${
+          tarea.hecha
+            ? "border-emerald-600 bg-emerald-600 text-white"
+            : "border-slate-300 bg-white"
+        }`}
+      >
+        {tarea.hecha && (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+        )}
+      </span>
+      <span
+        className={`flex-1 text-sm ${
+          tarea.hecha ? "text-slate-400 line-through" : "text-slate-800"
+        }`}
+      >
+        {tarea.titulo}
+      </span>
+    </>
+  );
+
+  if (!interactivo) {
+    return (
+      <div
+        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 ring-1 ${
+          tarea.hecha ? "bg-emerald-50 ring-emerald-200" : "bg-white ring-slate-200"
+        }`}
+      >
+        {contenido}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onAlternar}
+      disabled={guardando}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left ring-1 transition disabled:opacity-60 ${
+        tarea.hecha
+          ? "bg-emerald-50 ring-emerald-200"
+          : "bg-white ring-slate-200 hover:ring-navy-300"
+      }`}
+    >
+      {contenido}
+    </button>
+  );
+}
+
+/** Invierte el estado de una tarea para el update optimista. */
+function recalcular(prev: ResumenTareas | null, tareaId: string): ResumenTareas | null {
+  if (!prev) return prev;
+  const items = prev.items.map((t) =>
+    t.id === tareaId ? { ...t, hecha: !t.hecha } : t,
+  );
+  const hechas = items.filter((i) => i.hecha).length;
+  return { items, total: items.length, hechas, pendientes: items.length - hechas };
 }
