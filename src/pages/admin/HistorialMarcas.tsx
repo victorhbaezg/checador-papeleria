@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase, type Trabajador, type Marca } from "../../lib/supabase";
+import { supabase, type Trabajador, type Marca, type Horario, type TipoMarca } from "../../lib/supabase";
 import { inicioSemanaMx, ZONA_HORARIA } from "../../lib/marcado";
 
 // ---------------------------------------------------------------------------
@@ -71,8 +71,16 @@ function rangoTexto(inicioLunesUtc: Date): string {
 // Tipos internos
 // ---------------------------------------------------------------------------
 type FormAgregar = {
-  tipo: "entrada" | "salida";
+  tipo: TipoMarca;
   hora: string;
+};
+
+// Etiquetas y estilos por tipo de marca, para los chips de la lista.
+const ETIQUETA_TIPO: Record<TipoMarca, string> = {
+  entrada: "entrada",
+  salida: "salida",
+  pausa_inicio: "pausa in",
+  pausa_fin: "pausa fin",
 };
 
 type EstadoEdicion = {
@@ -88,6 +96,7 @@ export default function HistorialMarcas() {
   const [seleccionado, setSeleccionado] = useState<string>("");
   const [semanaOffset, setSemanaOffset] = useState(0);
   const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [horarios, setHorarios] = useState<Horario[]>([]);
   const [cargando, setCargando] = useState(false);
 
   // Estados de UI
@@ -108,6 +117,38 @@ export default function HistorialMarcas() {
     if (seleccionado) void cargarMarcas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seleccionado, semanaOffset]);
+
+  useEffect(() => {
+    if (seleccionado) void cargarHorarios();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seleccionado]);
+
+  const cargarHorarios = async () => {
+    const { data } = await supabase
+      .from("horarios")
+      .select("*")
+      .eq("trabajador_id", seleccionado);
+    setHorarios((data ?? []) as Horario[]);
+  };
+
+  // Dia de la semana (0=domingo..6=sabado) de una fecha "YYYY-MM-DD" en MX.
+  const diaSemanaDeFecha = (fechaMx: string): number => {
+    const wd = new Intl.DateTimeFormat("en-US", {
+      timeZone: ZONA_HORARIA,
+      weekday: "short",
+    }).format(new Date(fechaMx + "T12:00:00-06:00"));
+    const mapa: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    };
+    return mapa[wd] ?? 0;
+  };
+
+  // Verdadero si el horario del trabajador para ese dia tiene pausa programada.
+  const tienePausaProgramada = (fechaMx: string): boolean => {
+    const dia = diaSemanaDeFecha(fechaMx);
+    const h = horarios.find((x) => x.dia_semana === dia);
+    return Boolean(h && h.hora_pausa_inicio && h.hora_pausa_fin);
+  };
 
   const cargarTrabajadores = async () => {
     const { data } = await supabase
@@ -315,18 +356,22 @@ export default function HistorialMarcas() {
                             className={`flex items-center gap-2 rounded-lg px-3 py-2 ring-1 ${
                               m.tipo === "entrada"
                                 ? "bg-blue-50 ring-blue-100"
-                                : "bg-slate-50 ring-slate-200"
+                                : m.tipo === "salida"
+                                  ? "bg-slate-50 ring-slate-200"
+                                  : "bg-amber-50 ring-amber-100"
                             }`}
                           >
                             {/* Chip tipo */}
                             <span
-                              className={`w-14 flex-shrink-0 rounded-md px-1.5 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide ${
+                              className={`w-16 flex-shrink-0 rounded-md px-1.5 py-0.5 text-center text-[10px] font-bold uppercase tracking-wide ${
                                 m.tipo === "entrada"
                                   ? "bg-blue-100 text-blue-700"
-                                  : "bg-slate-200 text-slate-600"
+                                  : m.tipo === "salida"
+                                    ? "bg-slate-200 text-slate-600"
+                                    : "bg-amber-100 text-amber-700"
                               }`}
                             >
-                              {m.tipo}
+                              {ETIQUETA_TIPO[m.tipo]}
                             </span>
 
                             {/* Hora o input de edicion */}
@@ -419,7 +464,7 @@ export default function HistorialMarcas() {
                   {esAgregandoEste && (
                     <div className="space-y-2 rounded-lg bg-marca-50 p-3 ring-1 ring-marca-200">
                       <p className="text-xs font-semibold text-marca-700">Nueva marca</p>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => setFormAgregar((f) => ({ ...f, tipo: "entrada" }))}
@@ -442,6 +487,32 @@ export default function HistorialMarcas() {
                         >
                           Salida
                         </button>
+                        {tienePausaProgramada(fecha) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setFormAgregar((f) => ({ ...f, tipo: "pausa_inicio" }))}
+                              className={`flex-1 rounded-lg border py-1.5 text-xs font-semibold transition ${
+                                formAgregar.tipo === "pausa_inicio"
+                                  ? "border-amber-400 bg-amber-100 text-amber-700"
+                                  : "border-slate-200 bg-white text-slate-500"
+                              }`}
+                            >
+                              Inicio pausa
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setFormAgregar((f) => ({ ...f, tipo: "pausa_fin" }))}
+                              className={`flex-1 rounded-lg border py-1.5 text-xs font-semibold transition ${
+                                formAgregar.tipo === "pausa_fin"
+                                  ? "border-amber-400 bg-amber-100 text-amber-700"
+                                  : "border-slate-200 bg-white text-slate-500"
+                              }`}
+                            >
+                              Fin pausa
+                            </button>
+                          </>
+                        )}
                       </div>
                       <input
                         type="time"
