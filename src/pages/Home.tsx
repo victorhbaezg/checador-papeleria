@@ -8,12 +8,14 @@ import { cargarTareas } from "../lib/tareas";
 type ResumenHoy = {
   entrada: Marca | null;
   salida: Marca | null;
+  pausaInicio: Marca | null;
+  pausaFin: Marca | null;
 };
 
 export default function Home() {
   const { trabajador, cerrarSesion } = useAuth();
 
-  const [resumenHoy, setResumenHoy] = useState<ResumenHoy>({ entrada: null, salida: null });
+  const [resumenHoy, setResumenHoy] = useState<ResumenHoy>({ entrada: null, salida: null, pausaInicio: null, pausaFin: null });
   const [horasSemana, setHorasSemana] = useState<number>(0);
   const [tareas, setTareas] = useState<{ total: number; pendientes: number } | null>(null);
   const [cargandoResumen, setCargandoResumen] = useState(true);
@@ -45,7 +47,10 @@ export default function Home() {
     const entrada = marcasHoy.find((m) => m.tipo === "entrada") ?? null;
     // La ultima salida del dia gana, por si hubo varias
     const salida = [...marcasHoy].reverse().find((m) => m.tipo === "salida") ?? null;
-    setResumenHoy({ entrada, salida });
+    // Pausa: primer inicio y ultimo fin del dia (si los hay).
+    const pausaInicio = marcasHoy.find((m) => m.tipo === "pausa_inicio") ?? null;
+    const pausaFin = [...marcasHoy].reverse().find((m) => m.tipo === "pausa_fin") ?? null;
+    setResumenHoy({ entrada, salida, pausaInicio, pausaFin });
 
     // Horas acumuladas en la semana: leemos todas las marcas de la semana y
     // emparejamos entrada+salida por dia. Es un calculo simple en cliente que
@@ -170,6 +175,12 @@ export default function Home() {
             <div className="mt-3 grid grid-cols-2 gap-3">
               <RecuadroMarca label="Entrada" marca={resumenHoy.entrada} />
               <RecuadroMarca label="Salida" marca={resumenHoy.salida} />
+              {(resumenHoy.pausaInicio || resumenHoy.pausaFin) && (
+                <>
+                  <RecuadroMarca label="Inicio de pausa" marca={resumenHoy.pausaInicio} />
+                  <RecuadroMarca label="Fin de pausa" marca={resumenHoy.pausaFin} />
+                </>
+              )}
             </div>
           )}
         </div>
