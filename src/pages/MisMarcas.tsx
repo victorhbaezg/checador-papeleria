@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { useRecargarAlVolver } from "../lib/useRecargar";
 import {
   supabase,
   type Marca,
@@ -33,11 +34,25 @@ export default function MisMarcas() {
     void cargar(trabajador.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trabajador?.id]);
+  useRecargarAlVolver(() => {
+    if (trabajador) void cargar(trabajador.id);
+  });
+
 
   const cargar = async (trabajadorId: string) => {
     setCargando(true);
     setError(null);
 
+    try {
+      await cargarDatos(trabajadorId);
+    } catch (e) {
+      console.error("[MisMarcas] error al cargar:", e);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const cargarDatos = async (trabajadorId: string) => {
     const inicioUtc = inicioSemanaMx();
     const inicioStr = inicioUtc.toISOString().substring(0, 10);
 

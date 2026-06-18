@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { supabase, type Marca } from "../lib/supabase";
 import { fechaHoyMx, formatoHoraMx, inicioSemanaMx } from "../lib/marcado";
 import { cargarTareas } from "../lib/tareas";
+import { useRecargarAlVolver } from "../lib/useRecargar";
 
 type ResumenHoy = {
   entrada: Marca | null;
@@ -25,10 +26,24 @@ export default function Home() {
     void cargarResumen(trabajador.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trabajador?.id]);
+  useRecargarAlVolver(() => {
+    if (trabajador) void cargarResumen(trabajador.id);
+  });
+
 
   const cargarResumen = async (trabajadorId: string) => {
     setCargandoResumen(true);
 
+    try {
+      await cargarResumenDatos(trabajadorId);
+    } catch (e) {
+      console.error("[Home] error al cargar:", e);
+    } finally {
+      setCargandoResumen(false);
+    }
+  };
+
+  const cargarResumenDatos = async (trabajadorId: string) => {
     const hoyMx = fechaHoyMx();
     const inicioHoyUtc = new Date(`${hoyMx}T06:00:00.000Z`);
     const finHoyUtc = new Date(inicioHoyUtc.getTime() + 24 * 60 * 60 * 1000);

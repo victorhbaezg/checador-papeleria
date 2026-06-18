@@ -11,6 +11,7 @@ import {
 import { ZONA_HORARIA } from "../lib/marcado";
 import { inicioMesMx, calcularResumenMes, type ResumenMes } from "../lib/reporte";
 import { pesos } from "../lib/dias";
+import { useRecargarAlVolver } from "../lib/useRecargar";
 
 function nombreMes(ahora: Date = new Date()): string {
   const partes = new Intl.DateTimeFormat("es-MX", {
@@ -35,11 +36,25 @@ export default function MiMes() {
     void cargar(trabajador.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trabajador?.id]);
+  useRecargarAlVolver(() => {
+    if (trabajador) void cargar(trabajador.id);
+  });
+
 
   const cargar = async (trabajadorId: string) => {
     setCargando(true);
     setError(null);
 
+    try {
+      await cargarDatos(trabajadorId);
+    } catch (e) {
+      console.error("[MiMes] error al cargar:", e);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const cargarDatos = async (trabajadorId: string) => {
     const inicioUtc = inicioMesMx();
     const inicioStr = inicioUtc.toISOString().substring(0, 10);
 

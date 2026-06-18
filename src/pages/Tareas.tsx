@@ -7,6 +7,7 @@ import {
   type TareaConEstado,
   type ResumenTareas,
 } from "../lib/tareas";
+import { useRecargarAlVolver } from "../lib/useRecargar";
 
 export default function Tareas() {
   const { trabajador } = useAuth();
@@ -19,9 +20,23 @@ export default function Tareas() {
     void cargar(trabajador.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trabajador?.id]);
+  useRecargarAlVolver(() => {
+    if (trabajador) void cargar(trabajador.id);
+  });
+
 
   const cargar = async (trabajadorId: string) => {
     setCargando(true);
+    try {
+      await cargarDatos(trabajadorId);
+    } catch (e) {
+      console.error("[Tareas] error al cargar:", e);
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const cargarDatos = async (trabajadorId: string) => {
     const r = await cargarTareas(trabajadorId);
     setResumen(r);
     setCargando(false);

@@ -20,6 +20,27 @@ const lockNoOp = async <R,>(_name: string, _timeout: number, fn: () => Promise<R
   return fn();
 };
 
+// Tiempo maximo que esperamos a CUALQUIER peticion de red a Supabase antes
+// de abortarla. Sin esto, si la conexion queda colgada (el celular se durmio,
+// cambiaste de app, o hubo un parpadeo de red) la consulta espera para
+// siempre y la pantalla se queda en "Cargando..." hasta recargar a mano.
+// Al abortar, supabase-js devuelve un error normal y la app puede seguir.
+const TIMEOUT_PETICION_MS = 12000;
+
+const fetchConTimeout: typeof fetch = (input, init) => {
+  const controlador = new AbortController();
+  const id = setTimeout(() => controlador.abort(), TIMEOUT_PETICION_MS);
+
+  // Respetamos cualquier signal que ya venga en la peticion original.
+  const signalOriginal = init?.signal;
+  if (signalOriginal) {
+    if (signalOriginal.aborted) controlador.abort();
+    else signalOriginal.addEventListener("abort", () => controlador.abort(), { once: true });
+  }
+
+  return fetch(input, { ...init, signal: controlador.signal }).finally(() => clearTimeout(id));
+};
+
 export const supabase = createClient(url, anonKey, {
   auth: {
     persistSession: true,
@@ -27,6 +48,7 @@ export const supabase = createClient(url, anonKey, {
     detectSessionInUrl: false,
     lock: lockNoOp,
   },
+  global: { fetch: fetchConTimeout },
 });
 
 // ---- Tipos de las tablas (sincronizados con ESQUEMA_BD.sql) ----

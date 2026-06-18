@@ -80,18 +80,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     void cargarSesion();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (cancelado) return;
-      if (session) {
-        try {
-          await cargarPerfil(session.user.id);
-        } catch (err) {
+      if (!session) {
+        setTrabajador(null);
+        return;
+      }
+      // No usamos await directo aqui: el SDK de Supabase recomienda NO llamar
+      // otras funciones de Supabase dentro del callback (puede bloquear el
+      // manejo interno de la sesion y dejar la app colgada al volver de
+      // segundo plano). Diferimos la consulta con setTimeout para sacarla
+      // del callback.
+      setTimeout(() => {
+        if (cancelado) return;
+        cargarPerfil(session.user.id).catch((err) => {
           console.error("[auth] Fallo al refrescar perfil:", err);
           setTrabajador(null);
-        }
-      } else {
-        setTrabajador(null);
-      }
+        });
+      }, 0);
     });
 
     return () => {
