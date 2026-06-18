@@ -330,6 +330,7 @@ function PantallaExito({
   // En la salida el trabajador puede marcar sus tareas aqui mismo.
   const [resumen, setResumen] = useState<ResumenTareas | null>(tareas);
   const [guardandoId, setGuardandoId] = useState<string | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
 
   const alternar = async (t: TareaConEstado) => {
     if (tipo !== "salida" || guardandoId) return;
@@ -390,7 +391,9 @@ function PantallaExito({
               ? resumen.pendientes === 0
                 ? "Terminaste todo. Bien hecho."
                 : "Marca lo que completaste antes de irte."
-              : "Esto es lo que tienes para hoy y esta semana."}
+              : resumen.pendientes === 0
+                ? "Ya tienes todo marcado por hoy."
+                : `Tienes ${resumen.pendientes} tarea${resumen.pendientes === 1 ? "" : "s"} para hoy. Recuerda marcarlas al salir.`}
           </p>
 
           <TareasChecklist
@@ -402,9 +405,43 @@ function PantallaExito({
         </div>
       )}
 
-      <button onClick={onIrAHome} className="btn-primary w-full">
-        Listo
-      </button>
+      {tipo === "salida" && resumen && resumen.pendientes > 0 ? (
+        confirmando ? (
+          <div className="card border border-amber-200 bg-amber-50">
+            <p className="text-sm font-semibold text-amber-800">
+              Te faltan {resumen.pendientes} tarea{resumen.pendientes === 1 ? "" : "s"} por marcar
+            </p>
+            <p className="mt-1 text-xs text-amber-700">
+              Si sales asi, contaran como no hechas y pueden afectar tu bono del mes.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setConfirmando(false)}
+                className="btn-secondary flex-1"
+              >
+                Seguir marcando
+              </button>
+              <button
+                onClick={onIrAHome}
+                className="flex-1 rounded-lg bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-700"
+              >
+                Salir asi
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmando(true)}
+            className="w-full rounded-lg bg-amber-600 px-4 py-4 text-sm font-semibold text-white transition hover:bg-amber-700"
+          >
+            Listo ({resumen.pendientes} sin marcar)
+          </button>
+        )
+      ) : (
+        <button onClick={onIrAHome} className="btn-primary w-full">
+          Listo
+        </button>
+      )}
     </div>
   );
 }

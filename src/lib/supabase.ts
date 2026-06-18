@@ -80,6 +80,8 @@ export type Configuracion = {
   qr_local: string;
   tolerancia_retardo_minutos: number;
   monto_bono_mensual: number;
+  // Pesos que se descuentan por cada tarea de periodo cerrado no hecha ni justificada. 0 = desactivado.
+  monto_sancion_tarea: number;
   dia_corte_semana: number;
   // Umbral semanal (min). Si la suma de retardos llega aqui, se descuenta el
   // tiempo tarde. 0 = sancion desactivada.
@@ -135,4 +137,14 @@ export type TareaCompletada = {
   trabajador_id: string;
   periodo: string; // "YYYY-MM-DD" del dia (diaria) o del lunes (semanal)
   completada_en: string;
+};
+
+/** Tarea no hecha que el admin justifico: no rompe el bono ni descuenta. */
+export type TareaJustificada = {
+  id: string;
+  tarea_id: string;
+  trabajador_id: string;
+  periodo: string; // mismo formato que TareaCompletada.periodo
+  nota: string | null;
+  creado_en: string;
 };

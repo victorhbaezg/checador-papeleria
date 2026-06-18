@@ -5,8 +5,16 @@
  * faciles de razonar y de probar.
  */
 
-import type { Horario, Marca } from "./supabase";
-import { clavePeriodo, diaSemanaMx, inicioSemanaMx, ZONA_HORARIA } from "./marcado";
+import type {
+  FrecuenciaTarea,
+  Horario,
+  Marca,
+  Tarea,
+  TareaCompletada,
+  TareaJustificada,
+} from "./supabase";
+import { clavePeriodo, diaSemanaMx, fechaHoyMx, inicioSemanaMx, ZONA_HORARIA } from "./marcado";
+import { diaSemanaDe, lunesDe, sumarDias } from "./planner";
 
 export const UMBRAL_SANCION_DEFAULT = 60;
 
@@ -218,6 +226,8 @@ export type ResumenMes = {
   minutosTarde: number;
   horasDescontadas: number;
   montoDescuento: number; // descuento por retardos acumulados (por semana)
+  tareasIncompletas: number; // tareas del mes (cerradas) que no se completaron
+  montoSancionTareas: number; // descuento $ por esas tareas no hechas
   bono: number;
   ganoBonoMes: boolean;
   totalConBono: number; // sueldo - descuento + bono
@@ -259,6 +269,10 @@ export function calcularResumenMes(
   diasExcluidos: Set<string> = new Set(),
   ahora: Date = new Date(),
   umbralSancionMin: number = UMBRAL_SANCION_DEFAULT,
+  tareas: Tarea[] = [],
+  completadas: TareaCompletada[] = [],
+  montoSancionTarea: number = 0,
+  justificadas: TareaJustificada[] = [],
 ): ResumenMes {
   const hoyStr = dateFechaMx(ahora);
 
@@ -339,7 +353,15 @@ export function calcularResumenMes(
     }
   }
 
-  const ganoBonoMes = faltas === 0 && retardos === 0;
+  const tareasIncompletas = contarTareasIncompletas(
+    tareas,
+    completadas,
+    justificadas,
+    marcas,
+    ahora,
+  );
+  const montoSancionTareas = tareasIncompletas * montoSancionTarea;
+  const ganoBonoMes = faltas === 0 && retardos === 0 && tareasIncompletas === 0;
   const bono = ganoBonoMes ? montoBono : 0;
   const totalSueldo = horasTrabajadas * tarifaHora;
 
@@ -354,8 +376,129 @@ export function calcularResumenMes(
     minutosTarde: desc.minutosTarde,
     horasDescontadas: desc.horasDescontadas,
     montoDescuento: desc.monto,
+    tareasIncompletas,
+    montoSancionTareas,
     bono,
     ganoBonoMes,
-    totalConBono: Math.max(0, totalSueldo - desc.monto) + bono,
+    totalConBono: Math.max(0, totalSueldo - desc.monto - montoSancionTareas) + bono,
   };
+}
+
+// ==================================================================
+// TAREAS INCOMPLETAS (afectan el bono mensual)
+// ==================================================================
+
+/** Una tarea diaria aplica en una fecha concreta ("YYYY-MM-DD" calendario). */
+function tareaDiariaAplicaEnFecha(t: Tarea, fecha: string): boolean {
+  if (t.frecuencia !== "diaria") return false;
+  if (t.fecha) return t.fecha === fecha; // tarea de una sola vez
+  if (!t.dias_semana || t.dias_semana.length === 0) return true;
+  return t.dias_semana.includes(diaSemanaDe(fecha));
+}
+
+/** Una tarea semanal aplica en la semana cuyo lunes es `lunes`. */
+function tareaSemanalAplicaEnSemana(t: Tarea, lunes: string): boolean {
+  if (t.frecuencia !== "semanal") return false;
+  if (t.fecha) return lunesDe(t.fecha) === lunes; // semanal de una sola vez
+  return true;
+}
+
+/**
+ * Cuenta cuantas tareas del mes quedaron sin completar, contando solo
+ * periodos YA CERRADOS y dias/semanas en que el trabajador asistio.
+ *
+ *  - Diarias: por cada dia del mes anterior a hoy en que hubo entrada, cada
+ *    tarea diaria activa que aplicaba ese dia y no tiene registro de hecha.
+ *  - Semanales: por cada semana del mes ya terminada (su domingo < hoy) con al
+ *    menos una asistencia, cada tarea semanal activa sin registro de hecha.
+ *
+ * No se cuentan dias sin asistencia (esos ya son falta) ni tareas creadas
+ * despues del periodo. El dia y la semana en curso no cuentan todavia, para
+ * no castigar tareas que aun se pueden hacer.
+ */
+export type TareaIncompleta = {
+  tareaId: string;
+  titulo: string;
+  frecuencia: FrecuenciaTarea;
+  periodo: string; // "YYYY-MM-DD" del dia (diaria) o del lunes (semanal)
+};
+
+/**
+ * Lista detallada de tareas del mes que quedaron sin completar, contando solo
+ * periodos YA CERRADOS y dias/semanas en que el trabajador asistio. Excluye las
+ * justificadas por el admin. Reglas:
+ *
+ *  - Diarias: por cada dia del mes anterior a hoy en que hubo entrada, cada
+ *    tarea diaria activa que aplicaba ese dia, sin registro de hecha ni justificada.
+ *  - Semanales: por cada semana del mes ya terminada (su domingo < hoy) con al
+ *    menos una asistencia, cada tarea semanal activa sin registro ni justificada.
+ *
+ * No cuenta dias sin asistencia (esos ya son falta) ni tareas creadas despues
+ * del periodo. El dia y la semana en curso no cuentan todavia.
+ */
+export function detalleTareasIncompletas(
+  tareas: Tarea[],
+  completadas: TareaCompletada[],
+  justificadas: TareaJustificada[],
+  marcas: Marca[],
+  ahora: Date = new Date(),
+): TareaIncompleta[] {
+  const activas = tareas.filter((t) => t.activo);
+  if (activas.length === 0) return [];
+
+  const hoy = fechaHoyMx(ahora); // limite superior (exclusivo)
+  const inicioMesFecha = hoy.slice(0, 8) + "01";
+  const hechas = new Set(completadas.map((c) => `${c.tarea_id}|${c.periodo}`));
+  const just = new Set(justificadas.map((j) => `${j.tarea_id}|${j.periodo}`));
+
+  // Dias del mes (cerrados) en que el trabajador tuvo entrada.
+  const diasTrabajados = new Set<string>();
+  for (const m of marcas) {
+    if (m.tipo !== "entrada") continue;
+    const fecha = isoAFechaMx(m.marcado_en);
+    if (fecha >= inicioMesFecha && fecha < hoy) diasTrabajados.add(fecha);
+  }
+
+  const out: TareaIncompleta[] = [];
+
+  // Diarias
+  for (const fecha of diasTrabajados) {
+    for (const t of activas) {
+      if (t.frecuencia !== "diaria") continue;
+      if (fecha < isoAFechaMx(t.creado_en)) continue; // no existia ese dia
+      if (!tareaDiariaAplicaEnFecha(t, fecha)) continue;
+      const clave = `${t.id}|${fecha}`;
+      if (hechas.has(clave) || just.has(clave)) continue;
+      out.push({ tareaId: t.id, titulo: t.titulo, frecuencia: "diaria", periodo: fecha });
+    }
+  }
+
+  // Semanales: semanas con asistencia cuyo domingo ya paso.
+  const semanas = new Set<string>();
+  for (const fecha of diasTrabajados) semanas.add(lunesDe(fecha));
+  for (const lunes of semanas) {
+    const domingo = sumarDias(lunes, 6);
+    if (domingo >= hoy) continue; // la semana aun no termina
+    for (const t of activas) {
+      if (t.frecuencia !== "semanal") continue;
+      if (domingo < isoAFechaMx(t.creado_en)) continue; // creada despues
+      if (!tareaSemanalAplicaEnSemana(t, lunes)) continue;
+      const clave = `${t.id}|${lunes}`;
+      if (hechas.has(clave) || just.has(clave)) continue;
+      out.push({ tareaId: t.id, titulo: t.titulo, frecuencia: "semanal", periodo: lunes });
+    }
+  }
+
+  return out;
+}
+
+/** Cantidad de tareas no hechas (ver detalleTareasIncompletas). */
+export function contarTareasIncompletas(
+  tareas: Tarea[],
+  completadas: TareaCompletada[],
+  justificadas: TareaJustificada[],
+  marcas: Marca[],
+  ahora: Date = new Date(),
+): number {
+  return detalleTareasIncompletas(tareas, completadas, justificadas, marcas, ahora).length;
 }

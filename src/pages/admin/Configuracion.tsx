@@ -17,6 +17,7 @@ export default function ConfiguracionPage() {
   const [tolerancia, setTolerancia] = useState("");
   const [bono, setBono] = useState("");
   const [umbralSancion, setUmbralSancion] = useState("");
+  const [sancionTarea, setSancionTarea] = useState("");
 
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -40,6 +41,7 @@ export default function ConfiguracionPage() {
     setTolerancia(String(c.tolerancia_retardo_minutos));
     setBono(String(c.monto_bono_mensual));
     setUmbralSancion(String(c.umbral_sancion_minutos));
+    setSancionTarea(String(c.monto_sancion_tarea));
     setCargando(false);
   };
 
@@ -103,6 +105,7 @@ export default function ConfiguracionPage() {
     const tolNum = parseInt(tolerancia, 10);
     const bonoNum = parseFloat(bono);
     const umbralNum = parseInt(umbralSancion, 10);
+    const sancionTareaNum = parseFloat(sancionTarea);
 
     if (!Number.isFinite(tolNum) || tolNum < 0 || tolNum > 60) {
       setMensaje({ tipo: "error", texto: "La tolerancia debe estar entre 0 y 60 minutos" });
@@ -116,6 +119,10 @@ export default function ConfiguracionPage() {
       setMensaje({ tipo: "error", texto: "El umbral de sancion debe estar entre 0 y 600 minutos" });
       return;
     }
+    if (!Number.isFinite(sancionTareaNum) || sancionTareaNum < 0) {
+      setMensaje({ tipo: "error", texto: "El descuento por tarea debe ser un numero valido" });
+      return;
+    }
 
     setGuardando(true);
     const { error } = await supabase
@@ -124,6 +131,7 @@ export default function ConfiguracionPage() {
         tolerancia_retardo_minutos: tolNum,
         monto_bono_mensual: bonoNum,
         umbral_sancion_minutos: umbralNum,
+        monto_sancion_tarea: sancionTareaNum,
         actualizado_en: new Date().toISOString(),
       })
       .eq("id", 1);
@@ -315,6 +323,25 @@ export default function ConfiguracionPage() {
             <p className="mt-1 text-xs text-slate-400">
               Si la suma de retardos de la semana llega a estos minutos, se descuenta todo
               ese tiempo del pago (aunque hayan repuesto las horas). Pon 0 para desactivar.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600">
+              Descuento por tarea no hecha (MXN)
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={sancionTarea}
+              onChange={(e) => setSancionTarea(e.target.value)}
+              className="input-field"
+              required
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Se descuenta por cada tarea de un dia o semana ya cerrados que el trabajador
+              no completo y que no este justificada. Ademas pierde el bono del mes. Pon 0 para desactivar.
             </p>
           </div>
 
