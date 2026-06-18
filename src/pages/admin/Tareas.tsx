@@ -75,6 +75,7 @@ export default function AdminTareas() {
   const [subDia, setSubDia] = useState<SubDia>("todos");
   const [nuevosDias, setNuevosDias] = useState<number[]>([]);
   const [fechaUna, setFechaUna] = useState<string>(hoy);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   useEffect(() => {
     void cargarTrabajadores();
@@ -124,7 +125,30 @@ export default function AdminTareas() {
       nuevosDias.length === 0) ||
     (modo === "una_vez" && !fechaUna);
 
-  const agregar = async () => {
+  const limpiarForm = () => {
+    setNuevoTitulo("");
+    setNuevosDias([]);
+    setTipo("dia");
+    setModo("repetir");
+    setSubDia("todos");
+    setFechaUna(hoy);
+    setEditandoId(null);
+  };
+
+  const iniciarEdicion = (t: Tarea) => {
+    setEditandoId(t.id);
+    setNuevoTitulo(t.titulo);
+    setTipo(t.frecuencia === "semanal" ? "semana" : "dia");
+    setModo(t.fecha ? "una_vez" : "repetir");
+    setSubDia(t.dias_semana && t.dias_semana.length > 0 ? "especificos" : "todos");
+    setNuevosDias(t.dias_semana ?? []);
+    setFechaUna(t.fecha ?? hoy);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelarEdicion = () => limpiarForm();
+
+  const guardar = async () => {
     if (!seleccionado || formInvalido) return;
     setGuardando(true);
 
@@ -135,17 +159,23 @@ export default function AdminTareas() {
         ? [...nuevosDias].sort()
         : null;
 
-    await supabase.from("tareas").insert({
-      trabajador_id: seleccionado,
-      titulo: nuevoTitulo.trim(),
-      frecuencia,
-      fecha,
-      dias_semana,
-      orden: tareas.length,
-    });
+    if (editandoId) {
+      await supabase
+        .from("tareas")
+        .update({ titulo: nuevoTitulo.trim(), frecuencia, fecha, dias_semana })
+        .eq("id", editandoId);
+    } else {
+      await supabase.from("tareas").insert({
+        trabajador_id: seleccionado,
+        titulo: nuevoTitulo.trim(),
+        frecuencia,
+        fecha,
+        dias_semana,
+        orden: tareas.length,
+      });
+    }
 
-    setNuevoTitulo("");
-    setNuevosDias([]);
+    limpiarForm();
     await cargarTareas();
     setRecargar((n) => n + 1);
     setGuardando(false);
@@ -217,7 +247,7 @@ export default function AdminTareas() {
 
           {/* Nueva tarea */}
           <div className="card space-y-4">
-            <p className="label-section">Nueva tarea</p>
+            <p className="label-section">{editandoId ? "Editar tarea" : "Nueva tarea"}</p>
 
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-500">
@@ -344,13 +374,25 @@ export default function AdminTareas() {
               </p>
             )}
 
-            <button
-              onClick={() => void agregar()}
-              disabled={guardando || formInvalido}
-              className="btn-primary w-full py-2.5 text-sm"
-            >
-              Agregar tarea
-            </button>
+            <div className="flex gap-2">
+              {editandoId && (
+                <button
+                  type="button"
+                  onClick={cancelarEdicion}
+                  disabled={guardando}
+                  className="btn-secondary flex-1 py-2.5 text-sm"
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                onClick={() => void guardar()}
+                disabled={guardando || formInvalido}
+                className="btn-primary flex-1 py-2.5 text-sm"
+              >
+                {editandoId ? "Guardar cambios" : "Agregar tarea"}
+              </button>
+            </div>
           </div>
 
           {/* Lista de tareas del trabajador */}
@@ -370,9 +412,9 @@ export default function AdminTareas() {
               {tareas.map((t) => (
                 <div
                   key={t.id}
-                  className={`flex items-center gap-3 rounded-lg bg-white p-3 ring-1 ring-slate-200 ${
-                    t.activo ? "" : "opacity-50"
-                  }`}
+                  className={`flex items-center gap-3 rounded-lg bg-white p-3 ring-1 ${
+                    editandoId === t.id ? "ring-navy-400" : "ring-slate-200"
+                  } ${t.activo ? "" : "opacity-50"}`}
                 >
                   <div className="flex-1">
                     <p className="text-sm font-medium text-slate-800">{t.titulo}</p>
@@ -380,6 +422,17 @@ export default function AdminTareas() {
                       {descripcionRecurrencia(t)}
                     </p>
                   </div>
+                  <button
+                    onClick={() => iniciarEdicion(t)}
+                    disabled={guardando}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 ring-1 ring-slate-200 transition hover:ring-navy-400 hover:text-navy-700"
+                    title="Editar tarea"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
                   <button
                     onClick={() => void alternarActivo(t)}
                     disabled={guardando}
