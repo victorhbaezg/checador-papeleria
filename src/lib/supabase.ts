@@ -118,6 +118,9 @@ export type HorarioExcepcion = {
   fecha: string; // "YYYY-MM-DD"
   hora_entrada_esperada: string | null; // "HH:MM:SS" o null si es_dia_libre
   hora_salida_esperada: string | null;
+  // Pausa propia de la excepcion. NULL = ese dia no tiene pausa programada.
+  hora_pausa_inicio: string | null;
+  hora_pausa_fin: string | null;
   es_dia_libre: boolean;
   nota: string | null;
   creado_en: string;

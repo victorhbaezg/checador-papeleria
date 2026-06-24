@@ -149,51 +149,54 @@ export default function Marcar() {
         .maybeSingle();
       const horarioRegular = (horarioData as Horario | null) ?? null;
 
-      // 4) Decidir el tipo de marca considerando la pausa programada
-      const tipo = siguienteAccion(marcasHoy, horarioRegular, ahora);
+      // 3b) Excepcion de horario para hoy. Puede cambiar la entrada/salida,
+      //     definir una pausa propia para ese dia, o marcarlo como dia libre.
+      const { data: excepcionData } = await supabase
+        .from("horario_excepciones")
+        .select("*")
+        .eq("trabajador_id", trabajador.id)
+        .eq("fecha", hoyMx)
+        .maybeSingle();
+      const excepcion = excepcionData as HorarioExcepcion | null;
 
-      // 5) Revisamos retardo en la entrada (con excepciones) y tambien en el
-      //    regreso de pausa (vs hora_pausa_fin, con la misma tolerancia).
-      //    Si hay retardo, guardamos cuantos minutos tarde para descontarlos
-      //    despues si se acumulan en la semana.
+      // Horario efectivo del dia: la excepcion manda sobre el regular.
+      let horarioEfectivo: Horario | null = horarioRegular;
+      if (excepcion && excepcion.es_dia_libre) {
+        horarioEfectivo = null; // dia libre: sin retardo ni pausa
+      } else if (excepcion && excepcion.hora_entrada_esperada) {
+        horarioEfectivo = {
+          id: "",
+          trabajador_id: trabajador.id,
+          dia_semana: dia,
+          hora_entrada_esperada: excepcion.hora_entrada_esperada,
+          hora_salida_esperada: excepcion.hora_salida_esperada ?? "00:00:00",
+          descansa: false,
+          hora_pausa_inicio: excepcion.hora_pausa_inicio,
+          hora_pausa_fin: excepcion.hora_pausa_fin,
+        };
+      }
+
+      // 4) Decidir el tipo de marca considerando la pausa programada del
+      //    horario efectivo (ya incluye la pausa de la excepcion, si la hay).
+      const tipo = siguienteAccion(marcasHoy, horarioEfectivo, ahora);
+
+      // 5) Revisamos retardo en la entrada y en el regreso de pausa
+      //    (vs hora_pausa_fin, con la misma tolerancia), usando el horario
+      //    efectivo. Si hay retardo, guardamos cuantos minutos tarde para
+      //    descontarlos despues si se acumulan en la semana.
       let fueRetardo = false;
       let minTarde = 0;
       if (tipo === "entrada") {
-        const { data: excepcionData } = await supabase
-          .from("horario_excepciones")
-          .select("*")
-          .eq("trabajador_id", trabajador.id)
-          .eq("fecha", hoyMx)
-          .maybeSingle();
-        const excepcion = excepcionData as HorarioExcepcion | null;
-
-        let horarioEfectivo: Horario | null = horarioRegular;
-        if (excepcion && excepcion.es_dia_libre) {
-          horarioEfectivo = null; // dia libre: sin retardo posible
-        } else if (excepcion && excepcion.hora_entrada_esperada) {
-          horarioEfectivo = {
-            id: "",
-            trabajador_id: trabajador.id,
-            dia_semana: dia,
-            hora_entrada_esperada: excepcion.hora_entrada_esperada,
-            hora_salida_esperada: excepcion.hora_salida_esperada ?? "00:00:00",
-            descansa: false,
-            hora_pausa_inicio: null,
-            hora_pausa_fin: null,
-          };
-        }
-
         fueRetardo = esRetardo(ahora, horarioEfectivo, config.tolerancia_retardo_minutos);
         if (fueRetardo) minTarde = minutosTarde(ahora, horarioEfectivo);
       } else if (tipo === "pausa_fin") {
         // Regreso de pausa: cuenta retardo si vuelve tarde (con tolerancia).
-        // No se aplican excepciones porque estas no definen horario de pausa.
         fueRetardo = esRetardoPausa(
           ahora,
-          horarioRegular,
+          horarioEfectivo,
           config.tolerancia_retardo_minutos,
         );
-        if (fueRetardo) minTarde = minutosTardePausa(ahora, horarioRegular);
+        if (fueRetardo) minTarde = minutosTardePausa(ahora, horarioEfectivo);
       }
 
       // 6) Insertar la marca

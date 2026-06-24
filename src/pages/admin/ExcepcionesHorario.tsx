@@ -8,6 +8,9 @@ type FormData = {
   esDiaLibre: boolean;
   horaEntrada: string;
   horaSalida: string;
+  tienePausa: boolean;
+  horaPausaInicio: string;
+  horaPausaFin: string;
   nota: string;
 };
 
@@ -17,6 +20,9 @@ const FORM_VACIO: FormData = {
   esDiaLibre: false,
   horaEntrada: "",
   horaSalida: "",
+  tienePausa: false,
+  horaPausaInicio: "16:30",
+  horaPausaFin: "17:00",
   nota: "",
 };
 
@@ -94,6 +100,12 @@ export default function ExcepcionesHorario() {
       return;
     }
 
+    const conPausa = !form.esDiaLibre && form.tienePausa;
+    if (conPausa && (!form.horaPausaInicio || !form.horaPausaFin)) {
+      setError("Ingresa la hora de inicio y fin de la pausa, o desactiva la pausa.");
+      return;
+    }
+
     setGuardando(true);
     setError(null);
 
@@ -103,6 +115,8 @@ export default function ExcepcionesHorario() {
       es_dia_libre: form.esDiaLibre,
       hora_entrada_esperada: form.esDiaLibre ? null : `${form.horaEntrada}:00`,
       hora_salida_esperada: form.esDiaLibre ? null : `${form.horaSalida}:00`,
+      hora_pausa_inicio: conPausa ? `${form.horaPausaInicio}:00` : null,
+      hora_pausa_fin: conPausa ? `${form.horaPausaFin}:00` : null,
       nota: form.nota.trim() || null,
     };
 
@@ -252,6 +266,56 @@ export default function ExcepcionesHorario() {
                   </div>
                 )}
 
+                {/* Pausa de la excepcion (solo en cambio de horario) */}
+                {!form.esDiaLibre && (
+                  <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-slate-700">
+                        Pausa este dia
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={form.tienePausa}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, tienePausa: e.target.checked }))
+                        }
+                        className="h-4 w-4 accent-marca-500"
+                      />
+                    </label>
+
+                    {form.tienePausa && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-600">
+                            Inicio pausa
+                          </label>
+                          <input
+                            type="time"
+                            value={form.horaPausaInicio}
+                            onChange={(e) =>
+                              setForm((f) => ({ ...f, horaPausaInicio: e.target.value }))
+                            }
+                            className="input-field w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-600">
+                            Fin pausa
+                          </label>
+                          <input
+                            type="time"
+                            value={form.horaPausaFin}
+                            onChange={(e) =>
+                              setForm((f) => ({ ...f, horaPausaFin: e.target.value }))
+                            }
+                            className="input-field w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="mb-1 block text-xs font-medium text-slate-600">
                     Nota (opcional)
@@ -319,6 +383,11 @@ export default function ExcepcionesHorario() {
                       {!exc.es_dia_libre && (
                         <p className="mt-1 text-xs text-slate-500">
                           Entrada {horaCorta(exc.hora_entrada_esperada)} &middot; Salida {horaCorta(exc.hora_salida_esperada)}
+                        </p>
+                      )}
+                      {!exc.es_dia_libre && exc.hora_pausa_inicio && exc.hora_pausa_fin && (
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          Pausa {horaCorta(exc.hora_pausa_inicio)} &ndash; {horaCorta(exc.hora_pausa_fin)}
                         </p>
                       )}
                       {exc.nota && (
