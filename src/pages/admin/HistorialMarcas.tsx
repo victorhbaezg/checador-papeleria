@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase, type Trabajador, type Marca, type Horario, type HorarioExcepcion, type TipoMarca } from "../../lib/supabase";
-import { inicioSemanaMx, ZONA_HORARIA } from "../../lib/marcado";
+import { supabase, type Trabajador, type Marca, type Horario, type HorarioExcepcion, type Configuracion, type TipoMarca } from "../../lib/supabase";
+import {
+  esRetardo,
+  esRetardoPausa,
+  inicioSemanaMx,
+  minutosTarde,
+  minutosTardePausa,
+  ZONA_HORARIA,
+} from "../../lib/marcado";
 
 // ---------------------------------------------------------------------------
 // Helpers de fecha/hora
@@ -98,6 +105,7 @@ export default function HistorialMarcas() {
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [excepciones, setExcepciones] = useState<HorarioExcepcion[]>([]);
+  const [tolerancia, setTolerancia] = useState(0);
   const [cargando, setCargando] = useState(false);
 
   // Estados de UI
@@ -112,6 +120,7 @@ export default function HistorialMarcas() {
 
   useEffect(() => {
     void cargarTrabajadores();
+    void cargarConfig();
   }, []);
 
   useEffect(() => {
@@ -145,6 +154,59 @@ export default function HistorialMarcas() {
       .gte("fecha", dias[0])
       .lte("fecha", dias[6]);
     setExcepciones((data ?? []) as HorarioExcepcion[]);
+  };
+
+  const cargarConfig = async () => {
+    const { data } = await supabase
+      .from("configuracion")
+      .select("tolerancia_retardo_minutos")
+      .eq("id", 1)
+      .single();
+    if (data) setTolerancia((data as Configuracion).tolerancia_retardo_minutos);
+  };
+
+  // Horario efectivo de una fecha: la excepcion del dia manda sobre el regular.
+  const horarioEfectivoDe = (fechaMx: string): Horario | null => {
+    const exc = excepciones.find((e) => e.fecha === fechaMx);
+    const dia = diaSemanaDeFecha(fechaMx);
+    const regular = horarios.find((x) => x.dia_semana === dia) ?? null;
+    if (exc) {
+      if (exc.es_dia_libre) return null;
+      if (exc.hora_entrada_esperada) {
+        return {
+          id: "",
+          trabajador_id: seleccionado,
+          dia_semana: dia,
+          hora_entrada_esperada: exc.hora_entrada_esperada,
+          hora_salida_esperada: exc.hora_salida_esperada ?? "00:00:00",
+          descansa: false,
+          hora_pausa_inicio: exc.hora_pausa_inicio,
+          hora_pausa_fin: exc.hora_pausa_fin,
+        };
+      }
+    }
+    return regular;
+  };
+
+  // Calcula si una marca (entrada o regreso de pausa) cuenta como retardo,
+  // con la misma logica que el marcado automatico.
+  const calcularRetardo = (
+    fechaMx: string,
+    tipo: TipoMarca,
+    marcadoEnIso: string,
+  ): { nota: string | null; minutos_tarde: number | null } => {
+    const h = horarioEfectivoDe(fechaMx);
+    const cuando = new Date(marcadoEnIso);
+    let fue = false;
+    let min = 0;
+    if (tipo === "entrada") {
+      fue = esRetardo(cuando, h, tolerancia);
+      if (fue) min = minutosTarde(cuando, h);
+    } else if (tipo === "pausa_fin") {
+      fue = esRetardoPausa(cuando, h, tolerancia);
+      if (fue) min = minutosTardePausa(cuando, h);
+    }
+    return { nota: fue ? "retardo" : null, minutos_tarde: fue ? min : null };
   };
 
   // Dia de la semana (0=domingo..6=sabado) de una fecha "YYYY-MM-DD" en MX.
@@ -215,9 +277,10 @@ export default function HistorialMarcas() {
     setGuardando(true);
     const fechaMx = isoAFechaMx(marca.marcado_en);
     const nuevoUTC = mexicoAUTC(fechaMx, editando.hora);
+    const { nota, minutos_tarde } = calcularRetardo(fechaMx, marca.tipo, nuevoUTC);
     await supabase
       .from("marcas")
-      .update({ marcado_en: nuevoUTC, editada_por_admin: true })
+      .update({ marcado_en: nuevoUTC, editada_por_admin: true, nota, minutos_tarde })
       .eq("id", editando.marcaId);
     setEditando(null);
     await cargarMarcas();
@@ -229,13 +292,19 @@ export default function HistorialMarcas() {
     if (!agregandoFecha || !formAgregar.hora) return;
     setGuardando(true);
     const marcadoEn = mexicoAUTC(agregandoFecha, formAgregar.hora);
+    const { nota, minutos_tarde } = calcularRetardo(
+      agregandoFecha,
+      formAgregar.tipo,
+      marcadoEn,
+    );
     await supabase.from("marcas").insert({
       trabajador_id: seleccionado,
       tipo: formAgregar.tipo,
       marcado_en: marcadoEn,
       qr_valido: false,
       editada_por_admin: true,
-      nota: null,
+      nota,
+      minutos_tarde,
     });
     setAgregandoFecha(null);
     setFormAgregar({ tipo: "entrada", hora: "" });
