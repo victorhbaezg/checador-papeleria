@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase, type Trabajador, type Marca, type Horario, type TipoMarca } from "../../lib/supabase";
+import { supabase, type Trabajador, type Marca, type Horario, type HorarioExcepcion, type TipoMarca } from "../../lib/supabase";
 import { inicioSemanaMx, ZONA_HORARIA } from "../../lib/marcado";
 
 // ---------------------------------------------------------------------------
@@ -97,6 +97,7 @@ export default function HistorialMarcas() {
   const [semanaOffset, setSemanaOffset] = useState(0);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
+  const [excepciones, setExcepciones] = useState<HorarioExcepcion[]>([]);
   const [cargando, setCargando] = useState(false);
 
   // Estados de UI
@@ -114,7 +115,10 @@ export default function HistorialMarcas() {
   }, []);
 
   useEffect(() => {
-    if (seleccionado) void cargarMarcas();
+    if (seleccionado) {
+      void cargarMarcas();
+      void cargarExcepciones();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seleccionado, semanaOffset]);
 
@@ -131,6 +135,18 @@ export default function HistorialMarcas() {
     setHorarios((data ?? []) as Horario[]);
   };
 
+  // Excepciones de la semana visible (pueden definir pausa propia ese dia).
+  const cargarExcepciones = async () => {
+    const dias = diasDeLaSemana(inicioLunesUtc);
+    const { data } = await supabase
+      .from("horario_excepciones")
+      .select("*")
+      .eq("trabajador_id", seleccionado)
+      .gte("fecha", dias[0])
+      .lte("fecha", dias[6]);
+    setExcepciones((data ?? []) as HorarioExcepcion[]);
+  };
+
   // Dia de la semana (0=domingo..6=sabado) de una fecha "YYYY-MM-DD" en MX.
   const diaSemanaDeFecha = (fechaMx: string): number => {
     const wd = new Intl.DateTimeFormat("en-US", {
@@ -143,8 +159,15 @@ export default function HistorialMarcas() {
     return mapa[wd] ?? 0;
   };
 
-  // Verdadero si el horario del trabajador para ese dia tiene pausa programada.
+  // Verdadero si ese dia hay pausa programada. Una excepcion de horario para
+  // la fecha manda sobre el horario regular: si es dia libre no hay pausa, y
+  // si es cambio de horario la pausa sale de la propia excepcion.
   const tienePausaProgramada = (fechaMx: string): boolean => {
+    const exc = excepciones.find((e) => e.fecha === fechaMx);
+    if (exc) {
+      if (exc.es_dia_libre) return false;
+      return Boolean(exc.hora_pausa_inicio && exc.hora_pausa_fin);
+    }
     const dia = diaSemanaDeFecha(fechaMx);
     const h = horarios.find((x) => x.dia_semana === dia);
     return Boolean(h && h.hora_pausa_inicio && h.hora_pausa_fin);
