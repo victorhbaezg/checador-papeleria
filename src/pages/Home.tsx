@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { supabase, type Marca } from "../lib/supabase";
 import { fechaHoyMx, formatoHoraMx, inicioSemanaMx } from "../lib/marcado";
 import { cargarTareas } from "../lib/tareas";
+import { calcularResumenSemana } from "../lib/reporte";
 import { useRecargarAlVolver } from "../lib/useRecargar";
 
 type ResumenHoy = {
@@ -77,8 +78,14 @@ export default function Home() {
       .gte("marcado_en", inicioSemanaUtc.toISOString())
       .order("marcado_en", { ascending: true });
 
-    const horas = calcularHorasSemana((marcasSemanaData ?? []) as Marca[]);
-    setHorasSemana(horas);
+    // Usamos la misma funcion del detalle de la semana para que las horas
+    // coincidan exactamente (incluye el descuento de la pausa con retardo).
+    const resumenSemana = calcularResumenSemana(
+      (marcasSemanaData ?? []) as Marca[],
+      [],
+      0,
+    );
+    setHorasSemana(resumenSemana.horasTrabajadas);
 
     // Tareas pendientes (limpieza/orden)
     try {
@@ -265,39 +272,4 @@ function RecuadroMarca({ label, marca }: { label: string; marca: Marca | null })
       )}
     </div>
   );
-}
-
-/**
- * Suma de horas trabajadas en la semana actual a partir de marcas crudas.
- * Empareja la PRIMERA entrada con la ULTIMA salida de cada dia.
- * Si un dia tiene entrada sin salida, ese dia aun no cuenta.
- */
-function calcularHorasSemana(marcas: Marca[]): number {
-  // Agrupar por fecha local (CDMX). Como `inicioSemanaMx` ya filtro, basta
-  // agrupar por la fecha que se ve al pasar a CDMX.
-  const porDia = new Map<string, Marca[]>();
-  for (const m of marcas) {
-    const fechaLocal = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Mexico_City",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date(m.marcado_en)); // "YYYY-MM-DD"
-    const arr = porDia.get(fechaLocal) ?? [];
-    arr.push(m);
-    porDia.set(fechaLocal, arr);
-  }
-
-  let total = 0;
-  for (const lista of porDia.values()) {
-    const entradas = lista.filter((m) => m.tipo === "entrada");
-    const salidas = lista.filter((m) => m.tipo === "salida");
-    if (entradas.length === 0 || salidas.length === 0) continue;
-    const entrada = new Date(entradas[0].marcado_en).getTime();
-    const salida = new Date(salidas[salidas.length - 1].marcado_en).getTime();
-    if (salida > entrada) {
-      total += (salida - entrada) / (1000 * 60 * 60);
-    }
-  }
-  return total;
 }
