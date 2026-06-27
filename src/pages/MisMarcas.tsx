@@ -18,6 +18,9 @@ type ResumenDia = {
   fechaLocal: string; // "YYYY-MM-DD" en CDMX
   entrada: Marca | null;
   salida: Marca | null;
+  pausaInicio: Marca | null;
+  pausaFin: Marca | null;
+  minPausaTarde: number; // minutos que regreso tarde de la pausa
   horas: number | null;
   fueRetardo: boolean;
 };
@@ -254,6 +257,7 @@ export default function MisMarcas() {
 }
 
 function FilaDia({ dia }: { dia: ResumenDia }) {
+  const tienePausa = dia.pausaInicio !== null || dia.pausaFin !== null;
   return (
     <div className="card">
       <div className="flex items-center justify-between">
@@ -287,6 +291,39 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
           </p>
         </div>
       </div>
+
+      {tienePausa && (
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Inicio pausa
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-slate-700">
+              {dia.pausaInicio ? formatoHoraMx(dia.pausaInicio.marcado_en) : "--:--"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Fin pausa
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-slate-700">
+              {dia.pausaFin ? formatoHoraMx(dia.pausaFin.marcado_en) : "--:--"}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Regreso
+            </p>
+            <p
+              className={`mt-0.5 text-sm font-semibold ${
+                dia.minPausaTarde > 0 ? "text-amber-600" : "text-emerald-600"
+              }`}
+            >
+              {dia.minPausaTarde > 0 ? `+${dia.minPausaTarde} min` : "A tiempo"}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -313,8 +350,12 @@ function agruparPorDia(marcas: Marca[]): ResumenDia[] {
     .map(([fechaLocal, ms]) => {
       const entradas = ms.filter((m) => m.tipo === "entrada");
       const salidas = ms.filter((m) => m.tipo === "salida");
+      const pausasInicio = ms.filter((m) => m.tipo === "pausa_inicio");
+      const pausasFin = ms.filter((m) => m.tipo === "pausa_fin");
       const entrada = entradas[0] ?? null;
       const salida = salidas[salidas.length - 1] ?? null;
+      const pausaInicio = pausasInicio[0] ?? null;
+      const pausaFin = pausasFin[pausasFin.length - 1] ?? null;
 
       // Minutos que regreso tarde de la pausa (esos no se cuentan trabajados).
       const minPausaTarde = ms
@@ -341,6 +382,6 @@ function agruparPorDia(marcas: Marca[]): ResumenDia[] {
           (m) => m.tipo === "pausa_fin" && m.nota === "retardo" && !m.justificada,
         );
 
-      return { fechaLocal, entrada, salida, horas, fueRetardo };
+      return { fechaLocal, entrada, salida, pausaInicio, pausaFin, minPausaTarde, horas, fueRetardo };
     });
 }
