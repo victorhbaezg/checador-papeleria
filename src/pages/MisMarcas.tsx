@@ -20,6 +20,7 @@ type ResumenDia = {
   salida: Marca | null;
   pausaInicio: Marca | null;
   pausaFin: Marca | null;
+  minEntradaTarde: number; // minutos de retardo en la entrada
   minPausaTarde: number; // minutos que regreso tarde de la pausa
   horas: number | null;
   fueRetardo: boolean;
@@ -277,6 +278,15 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
           <p className="mt-0.5 text-sm font-medium text-slate-900">
             {dia.entrada ? formatoHoraMx(dia.entrada.marcado_en) : "--:--"}
           </p>
+          {dia.entrada && (
+            <p
+              className={`mt-0.5 text-[11px] font-semibold ${
+                dia.minEntradaTarde > 0 ? "text-amber-600" : "text-emerald-600"
+              }`}
+            >
+              {dia.minEntradaTarde > 0 ? `+${dia.minEntradaTarde} min` : "A tiempo"}
+            </p>
+          )}
         </div>
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salida</p>
@@ -354,6 +364,10 @@ function agruparPorDia(marcas: Marca[]): ResumenDia[] {
       const pausasFin = ms.filter((m) => m.tipo === "pausa_fin");
       const entrada = entradas[0] ?? null;
       const salida = salidas[salidas.length - 1] ?? null;
+      const minEntradaTarde =
+        entrada && entrada.nota === "retardo" && !entrada.justificada
+          ? entrada.minutos_tarde ?? 0
+          : 0;
       const pausaInicio = pausasInicio[0] ?? null;
       const pausaFin = pausasFin[pausasFin.length - 1] ?? null;
 
@@ -382,6 +396,6 @@ function agruparPorDia(marcas: Marca[]): ResumenDia[] {
           (m) => m.tipo === "pausa_fin" && m.nota === "retardo" && !m.justificada,
         );
 
-      return { fechaLocal, entrada, salida, pausaInicio, pausaFin, minPausaTarde, horas, fueRetardo };
+      return { fechaLocal, entrada, salida, pausaInicio, pausaFin, minEntradaTarde, minPausaTarde, horas, fueRetardo };
     });
 }
