@@ -299,7 +299,7 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Estado</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Entrada</p>
           <div className="mt-0.5">
             {dia.entrada ? (
               <EstadoMarca minutosTarde={dia.minEntradaTarde} etiqueta="Retardo" />
@@ -333,7 +333,7 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
               Regreso
             </p>
             <div className="mt-0.5">
-              <EstadoMarca minutosTarde={dia.minPausaTarde} etiqueta="Tarde" />
+              <EstadoMarca minutosTarde={dia.minPausaTarde} etiqueta="Retardo" />
             </div>
           </div>
         </div>
