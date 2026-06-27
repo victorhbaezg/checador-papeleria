@@ -257,6 +257,18 @@ export default function MisMarcas() {
   );
 }
 
+function EstadoMarca({ minutosTarde, etiqueta }: { minutosTarde: number; etiqueta: string }) {
+  if (minutosTarde > 0) {
+    return (
+      <div>
+        <p className="text-sm font-semibold text-amber-600">{etiqueta}</p>
+        <p className="mt-0.5 text-[11px] font-semibold text-amber-600">+{minutosTarde} min</p>
+      </div>
+    );
+  }
+  return <p className="text-sm font-semibold text-emerald-600">A tiempo</p>;
+}
+
 function FilaDia({ dia }: { dia: ResumenDia }) {
   const tienePausa = dia.pausaInicio !== null || dia.pausaFin !== null;
   return (
@@ -265,11 +277,12 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
         <p className="text-sm font-semibold capitalize text-navy-700">
           {formatoFechaCorta(`${dia.fechaLocal}T12:00:00.000Z`)}
         </p>
-        {dia.fueRetardo && (
-          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-            Retardo
+        <div className="text-right">
+          <span className="text-xl font-bold leading-none text-marca-600">
+            {dia.horas === null ? "--" : dia.horas.toFixed(1)}
           </span>
-        )}
+          <span className="ml-1 text-xs font-medium text-slate-500">h</span>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -278,15 +291,6 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
           <p className="mt-0.5 text-sm font-medium text-slate-900">
             {dia.entrada ? formatoHoraMx(dia.entrada.marcado_en) : "--:--"}
           </p>
-          {dia.entrada && (
-            <p
-              className={`mt-0.5 text-[11px] font-semibold ${
-                dia.minEntradaTarde > 0 ? "text-amber-600" : "text-emerald-600"
-              }`}
-            >
-              {dia.minEntradaTarde > 0 ? `+${dia.minEntradaTarde} min` : "A tiempo"}
-            </p>
-          )}
         </div>
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Salida</p>
@@ -295,10 +299,14 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Horas</p>
-          <p className="mt-0.5 text-sm font-semibold text-marca-600">
-            {dia.horas === null ? "--" : dia.horas.toFixed(1)}
-          </p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Estado</p>
+          <div className="mt-0.5">
+            {dia.entrada ? (
+              <EstadoMarca minutosTarde={dia.minEntradaTarde} etiqueta="Retardo" />
+            ) : (
+              <p className="text-sm font-medium text-slate-300">--</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -324,13 +332,9 @@ function FilaDia({ dia }: { dia: ResumenDia }) {
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               Regreso
             </p>
-            <p
-              className={`mt-0.5 text-sm font-semibold ${
-                dia.minPausaTarde > 0 ? "text-amber-600" : "text-emerald-600"
-              }`}
-            >
-              {dia.minPausaTarde > 0 ? `+${dia.minPausaTarde} min` : "A tiempo"}
-            </p>
+            <div className="mt-0.5">
+              <EstadoMarca minutosTarde={dia.minPausaTarde} etiqueta="Tarde" />
+            </div>
           </div>
         </div>
       )}
